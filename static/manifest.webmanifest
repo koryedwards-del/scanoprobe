@@ -1,6 +1,6 @@
 {
-  "name": "Burn & Build LBA",
-  "short_name": "LBA",
+  "name": "Scanoprobe",
+  "short_name": "Scanoprobe",
   "description": "Thigh + waist ultrasound body fat",
   "start_url": ".",
   "display": "standalone",

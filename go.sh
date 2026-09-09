@@ -18,7 +18,7 @@ fi
 
 URL="http://127.0.0.1:8765"
 
-echo "Starting Burn & Build LBA…"
+echo "Starting Scanoprobe…"
 echo "Leave this window open."
 echo "Use Google Chrome — not Safari."
 echo ""

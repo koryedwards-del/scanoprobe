@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-REPO_NAME="burn-build-lba"
+REPO_NAME="scanoprobe"
 MAX_WAIT=600
 INTERVAL=5
 elapsed=0

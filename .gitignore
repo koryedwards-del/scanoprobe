@@ -6,7 +6,7 @@ config.json
 captures/
 .DS_Store
 agent-tools/
-burn-build-lba.zip
+scanoprobe.zip
 node_modules/
 dist/
 build/

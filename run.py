@@ -6,7 +6,7 @@ from bodymetrix.app import create_app
 
 def main() -> None:
     app = create_app()
-    print("Burn & Build LBA → http://127.0.0.1:8765")
+    print("Scanoprobe → http://127.0.0.1:8765")
     print("Plug in your probe, edit config.json with your formula, then open the page.")
     app.run(host="127.0.0.1", port=8765, debug=False)
 

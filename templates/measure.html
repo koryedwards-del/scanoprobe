@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>Scanoprobe</title>
+  <link rel="stylesheet" href="/static/measure.css">
+</head>
+<body>
+  <div class="wrap">
+    <p id="probe-status" class="probe-line warn">Checking probe…</p>
+
+    <div class="device" id="device">
+      <div class="face">
+        <h1 class="scanoprobe-logo">SCANOPROBE<sup>®</sup></h1>
+
+        <div class="lcd-panel">
+          <div class="lcd-top">
+            <span class="lcd-mm-label">MM</span>
+            <span class="lcd-gain" id="gain-label">GAIN 0</span>
+          </div>
+          <div class="lcd-value" id="mm">—</div>
+          <div class="lcd-bottom">
+            <span class="lcd-live" id="live-wrap">
+              LIVE <span class="live-dot" id="live-dot"></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="scale-block">
+          <div class="tick-row top-ticks" aria-hidden="true">
+            <span>0</span><span></span><span>10</span><span></span><span>20</span>
+            <span></span><span>30</span><span></span><span>40</span><span></span><span>50</span>
+          </div>
+          <div class="led-well">
+            <div class="led-bar" id="led-bar"></div>
+          </div>
+          <div class="depth-label">DEPTH (mm)</div>
+        </div>
+
+        <div class="button-row">
+          <div class="btn-wrap">
+            <button type="button" class="rubber-btn" id="gain-down" aria-label="Gain down">−</button>
+            <span class="btn-caption">GAIN</span>
+          </div>
+          <div class="btn-wrap">
+            <button type="button" class="rubber-btn" id="gain-up" aria-label="Gain up">+</button>
+            <span class="btn-caption">GAIN</span>
+          </div>
+          <div class="btn-wrap">
+            <button type="button" class="hold-btn" id="hold">HOLD</button>
+            <span class="btn-caption">HOLD</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="workflow">
+      Gain 0 → hold SEND → + to full LEDs → dial − back → three LEDs tight → HOLD.
+    </p>
+    <button type="button" class="new-link hidden" id="new-btn">New measurement</button>
+  </div>
+
+  <script type="module" src="/static/measure.js"></script>
+</body>
+</html>

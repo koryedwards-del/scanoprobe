@@ -1,0 +1,896 @@
+BVAlgo disasm v2 — Tue Sep  8 21:26:53 PDT 2026
+Binary: /Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal
+Arch:   x86_64
+
+=== NM symbols ===
+--- GetThicknessMeasurementfromAverageSignal ---
+000000010000e4cd t -[BodyViewPersonalAppDelegate GetThicknessMeasurementfromAverageSignal]
+
+--- initthicknessParms ---
+000000010000ebcc t -[BodyViewPersonalAppDelegate initthicknessParms]
+
+--- GetEstimatedThickness ---
+00000001000204bd t -[BVAlgo GetEstimatedThickness::::]
+0000000100020bd8 t -[BVAlgo GetEstimatedThickness:]
+
+--- findFirstPeakinArray ---
+00000001000211e4 t -[BVAlgo findFirstPeakinArray::::]
+
+--- FindPeaks ---
+00000001000217de t -[BVAlgo FindPeaks::]
+
+--- FindClosestPeak ---
+0000000100022925 t -[BVAlgo FindClosestPeak:]
+
+--- GetPeakLocation ---
+000000010003619e t -[BV2DView GetPeakLocation::]
+0000000100035f16 t -[BV2DView OLDGetPeakLocation::]
+000000010004e72b t -[BV2DView2DAfter GetPeakLocation::]
+0000000100052c87 t -[BV2DView2DBefore GetPeakLocation::]
+000000010004452e t -[BV2DViewFromFile GetPeakLocation::]
+0000000100048a04 t -[BV2DViewFromFileBefore GetPeakLocation::]
+
+--- readbxMultipleSignals ---
+000000010002e2f7 t -[bodymetrixDriver readbxMultipleSignals:::]
+
+--- _peakstart ---
+000000010008b3f0 s _peakstart
+
+--- _peakend ---
+000000010008b580 s _peakend
+
+--- _peakMax ---
+000000010008b710 s _peakMax
+
+--- _peakiMax ---
+000000010008ba30 s _peakiMax
+
+--- _fatThickness ---
+0000000100093e70 b _fatThickness
+
+--- _muscleThickness ---
+0000000100093ea0 b _muscleThickness
+
+=== DISASM by address ===
+
+──── GetThicknessMeasurementfromAverageSignal] @ 000000010000e4cd ────
+000000010000e4cd	pushq	%rbp
+000000010000e4ce	movq	%rsp, %rbp
+000000010000e4d1	pushq	%r15
+000000010000e4d3	pushq	%r14
+000000010000e4d5	pushq	%r13
+000000010000e4d7	pushq	%r12
+000000010000e4d9	pushq	%rbx
+000000010000e4da	pushq	%rax
+000000010000e4db	movq	%rdi, %r15
+000000010000e4de	movq	0x7a3e3(%rip), %rsi
+000000010000e4e5	movq	0x65c24(%rip), %r12
+000000010000e4ec	callq	*%r12
+000000010000e4ef	movq	0x7b4e2(%rip), %rax
+000000010000e4f6	movq	(%r15,%rax), %rdi
+000000010000e4fa	movsd	0x8591e(%rip), %xmm0
+000000010000e502	movsd	0x8591e(%rip), %xmm1
+000000010000e50a	movsd	0x8591e(%rip), %xmm2
+000000010000e512	movq	0x7a3b7(%rip), %rbx
+000000010000e519	leaq	0x818f0(%rip), %rdx
+000000010000e520	movq	%rbx, %rsi
+000000010000e523	callq	*%r12
+000000010000e526	movq	%rax, %rdi
+000000010000e529	callq	0x100055ea2
+000000010000e52e	movq	%rax, %r13
+000000010000e531	movq	0x7a3a0(%rip), %r14
+000000010000e538	movq	%r13, %rdi
+000000010000e53b	movq	%r14, %rsi
+000000010000e53e	callq	*%r12
+000000010000e541	xorpd	%xmm1, %xmm1
+000000010000e545	ucomisd	%xmm1, %xmm0
+000000010000e549	jae	0x10000e5d4
+000000010000e54f	movsd	0x858d1(%rip), %xmm1
+000000010000e557	mulsd	0x47ff1(%rip), %xmm1
+000000010000e55f	movsd	%xmm1, 0x858c1(%rip)
+000000010000e567	movsd	0x858c1(%rip), %xmm2
+000000010000e56f	mulsd	0x481c9(%rip), %xmm2
+000000010000e577	movsd	%xmm2, 0x858b1(%rip)
+000000010000e57f	movq	0x7b452(%rip), %rax
+000000010000e586	movq	(%r15,%rax), %rdi
+000000010000e58a	movsd	0x858a6(%rip), %xmm0
+000000010000e592	leaq	0x81877(%rip), %rdx
+000000010000e599	movq	%rbx, %rsi
+000000010000e59c	callq	*%r12
+000000010000e59f	movq	%rax, %rdi
+000000010000e5a2	callq	0x100055ea2
+000000010000e5a7	movq	%rax, %rbx
+000000010000e5aa	movq	%r13, %rdi
+000000010000e5ad	callq	*0x65b6d(%rip)
+000000010000e5b3	movq	%rbx, %rdi
+000000010000e5b6	movq	%r14, %rsi
+000000010000e5b9	callq	*%r12
+000000010000e5bc	ucomisd	0x48054(%rip), %xmm0
+000000010000e5c4	jb	0x10000e5e3
+000000010000e5c6	movq	%rbx, %rdi
+000000010000e5c9	movq	%r14, %rsi
+000000010000e5cc	callq	*0x65b3e(%rip)
+000000010000e5d2	jmp	0x10000e5e3
+000000010000e5d4	movq	%r13, %rdi
+000000010000e5d7	movq	%r14, %rsi
+000000010000e5da	callq	*0x65b30(%rip)
+000000010000e5e0	movq	%r13, %rbx
+000000010000e5e3	movq	%rbx, %rdi
+000000010000e5e6	addq	$0x8, %rsp
+000000010000e5ea	popq	%rbx
+000000010000e5eb	popq	%r12
+000000010000e5ed	popq	%r13
+000000010000e5ef	popq	%r14
+000000010000e5f1	popq	%r15
+000000010000e5f3	popq	%rbp
+000000010000e5f4	jmp	0x100055e36
+-[BodyViewPersonalAppDelegate pointTableAction:]:
+000000010000e5f9	pushq	%rbp
+000000010000e5fa	movq	%rsp, %rbp
+000000010000e5fd	pushq	%r15
+000000010000e5ff	pushq	%r14
+000000010000e601	pushq	%r13
+000000010000e603	pushq	%r12
+000000010000e605	pushq	%rbx
+000000010000e606	pushq	%rax
+000000010000e607	movq	%rdi, %r14
+000000010000e60a	movq	%rdx, %rdi
+000000010000e60d	callq	*0x65b15(%rip)
+000000010000e613	movq	%rax, %rbx
+000000010000e616	movb	0x7d5cc(%rip), %al
+000000010000e61c	testb	%al, %al
+000000010000e61e	jne	0x10000e6aa
+000000010000e624	movb	0x7d5bf(%rip), %al
+000000010000e62a	testb	%al, %al
+000000010000e62c	jne	0x10000e6aa
+000000010000e62e	movq	0x7b4b3(%rip), %rax
+000000010000e635	movq	(%r14,%rax), %rdi
+
+──── initthicknessParms] @ 000000010000ebcc ────
+000000010000ebcc	pushq	%rbp
+000000010000ebcd	movq	%rsp, %rbp
+000000010000ebd0	pushq	%r15
+000000010000ebd2	pushq	%r14
+000000010000ebd4	pushq	%r13
+000000010000ebd6	pushq	%r12
+000000010000ebd8	pushq	%rbx
+000000010000ebd9	pushq	%rax
+000000010000ebda	movq	%rdi, %r13
+000000010000ebdd	movq	0x7ade4(%rip), %rax
+000000010000ebe4	movq	(%r13,%rax), %rdi
+000000010000ebe9	movq	0x792b0(%rip), %rsi
+000000010000ebf0	movq	0x65519(%rip), %r14
+000000010000ebf7	callq	*%r14
+000000010000ebfa	movq	%rax, %rdi
+000000010000ebfd	callq	0x100055ea2
+000000010000ec02	movq	%rax, %r15
+000000010000ec05	movq	0x7969c(%rip), %rsi
+000000010000ec0c	movq	%r15, %rdi
+000000010000ec0f	callq	*%r14
+000000010000ec12	movq	%rax, %rdi
+000000010000ec15	callq	0x100055ea2
+000000010000ec1a	movq	%rax, %rbx
+000000010000ec1d	movq	0x7968c(%rip), %rsi
+000000010000ec24	movq	%rbx, %rdi
+000000010000ec27	callq	*%r14
+000000010000ec2a	movq	%rax, %r12
+000000010000ec2d	movq	0x654ec(%rip), %r14
+000000010000ec34	movq	%rbx, %rdi
+000000010000ec37	callq	*%r14
+000000010000ec3a	movq	%r15, %rdi
+000000010000ec3d	callq	*%r14
+000000010000ec40	cmpq	$0xf, %r12
+000000010000ec44	movsd	0x81054(%rip), %xmm1
+000000010000ec4c	je	0x10000ec54
+000000010000ec4e	xorpd	%xmm2, %xmm2
+000000010000ec52	jmp	0x10000ec5c
+000000010000ec54	movsd	0x81054(%rip), %xmm2
+000000010000ec5c	je	0x10000ec62
+000000010000ec5e	xorpd	%xmm1, %xmm1
+000000010000ec62	movq	0x7ad6f(%rip), %rax
+000000010000ec69	movq	(%r13,%rax), %rdi
+000000010000ec6e	movq	0x7adf3(%rip), %rax
+000000010000ec75	movsd	(%r13,%rax), %xmm0
+000000010000ec7c	movq	0x79c5d(%rip), %rsi
+000000010000ec83	xorl	%edx, %edx
+000000010000ec85	movq	0x65484(%rip), %rax
+000000010000ec8c	movq	%rax, %rbx
+000000010000ec8f	callq	*%rbx
+000000010000ec91	movq	0x7af48(%rip), %rax
+000000010000ec98	movsd	%xmm0, (%r13,%rax)
+000000010000ec9f	movq	0x7ad22(%rip), %rax
+000000010000eca6	movq	(%r13,%rax), %rdi
+000000010000ecab	movq	0x79bd6(%rip), %rsi
+000000010000ecb2	callq	*%rbx
+000000010000ecb4	movq	%rbx, %r14
+000000010000ecb7	movq	%rax, %rdi
+000000010000ecba	callq	0x100055ea2
+000000010000ecbf	movq	%rax, %r12
+000000010000ecc2	movq	0x79bc7(%rip), %rsi
+000000010000ecc9	movq	%r12, %rdi
+000000010000eccc	callq	*%r14
+000000010000eccf	movq	%rax, %rdi
+000000010000ecd2	callq	0x100055ea2
+000000010000ecd7	movq	%rax, %rbx
+000000010000ecda	movq	0x79337(%rip), %rsi
+000000010000ece1	movq	%rbx, %rdi
+000000010000ece4	callq	*%r14
+000000010000ece7	movq	%r14, %r15
+000000010000ecea	movq	%rax, %rdi
+000000010000eced	callq	0x100055ea2
+000000010000ecf2	movq	%rax, %r14
+000000010000ecf5	movq	%rbx, %rdi
+000000010000ecf8	movq	0x65421(%rip), %rax
+000000010000ecff	movq	%rax, %rbx
+000000010000ed02	callq	*%rbx
+000000010000ed04	movq	%r12, %rdi
+000000010000ed07	callq	*%rbx
+000000010000ed09	movq	0x794e0(%rip), %r12
+000000010000ed10	leaq	0x667f9(%rip), %rdx
+000000010000ed17	movq	%r14, -0x30(%rbp)
+000000010000ed1b	movq	%r14, %rdi
+000000010000ed1e	movq	%r12, %rsi
+000000010000ed21	callq	*%r15
+000000010000ed24	xorl	%ecx, %ecx
+000000010000ed26	testb	%al, %al
+000000010000ed28	sete	%cl
+000000010000ed2b	movq	0x7aeae(%rip), %rdx
+000000010000ed32	movsd	(%r13,%rdx), %xmm0
+000000010000ed39	leaq	0x47df0(%rip), %rax
+000000010000ed40	mulsd	(%rax,%rcx,8), %xmm0
+
+──── GetEstimatedThickness::::] @ 00000001000204bd ────
+00000001000204bd	pushq	%rbp
+00000001000204be	movq	%rsp, %rbp
+00000001000204c1	pushq	%r15
+00000001000204c3	pushq	%r14
+00000001000204c5	pushq	%r13
+00000001000204c7	pushq	%r12
+00000001000204c9	pushq	%rbx
+00000001000204ca	subq	$0x98, %rsp
+00000001000204d1	movsd	%xmm2, -0x58(%rbp)
+00000001000204d6	movsd	%xmm1, -0x50(%rbp)
+00000001000204db	movsd	%xmm0, -0x38(%rbp)
+00000001000204e0	movl	%edx, -0x30(%rbp)
+00000001000204e3	movq	%rdi, %rbx
+00000001000204e6	movq	%rbx, -0x60(%rbp)
+00000001000204ea	movq	0x69207(%rip), %rdi
+00000001000204f1	movq	0x67a48(%rip), %rsi
+00000001000204f8	leaq	0x55cb1(%rip), %rax
+00000001000204ff	movq	%rax, 0x40(%rsp)
+0000000100020504	leaq	0x55c85(%rip), %rax
+000000010002050b	movq	%rax, 0x38(%rsp)
+0000000100020510	leaq	0x54ff9(%rip), %rax
+0000000100020517	movq	%rax, 0x30(%rsp)
+000000010002051c	leaq	0x55c4d(%rip), %rax
+0000000100020523	movq	%rax, 0x28(%rsp)
+0000000100020528	leaq	0x55c21(%rip), %rax
+000000010002052f	movq	%rax, 0x20(%rsp)
+0000000100020534	leaq	0x55bf5(%rip), %rax
+000000010002053b	movq	%rax, 0x18(%rsp)
+0000000100020540	leaq	0x55bc9(%rip), %rax
+0000000100020547	movq	%rax, 0x10(%rsp)
+000000010002054c	leaq	0x55b9d(%rip), %rax
+0000000100020553	movq	%rax, 0x8(%rsp)
+0000000100020558	leaq	0x55b71(%rip), %rax
+000000010002055f	movq	%rax, (%rsp)
+0000000100020563	movq	$0x0, 0x48(%rsp)
+000000010002056c	leaq	0x55add(%rip), %rdx
+0000000100020573	leaq	0x55af6(%rip), %rcx
+000000010002057a	leaq	0x55b0f(%rip), %r8
+0000000100020581	leaq	0x55b28(%rip), %r9
+0000000100020588	movq	0x53b81(%rip), %r15
+000000010002058f	xorl	%eax, %eax
+0000000100020591	callq	*%r15
+0000000100020594	movq	%rax, %rdi
+0000000100020597	callq	0x100055ea2
+000000010002059c	movq	%rax, %r14
+000000010002059f	movq	0x69822(%rip), %rax
+00000001000205a6	movq	(%rbx,%rax), %rdi
+00000001000205aa	movq	0x682d7(%rip), %rsi
+00000001000205b1	callq	*%r15
+00000001000205b4	movq	%rax, %rdi
+00000001000205b7	callq	0x100055ea2
+00000001000205bc	movq	%rax, %r12
+00000001000205bf	movq	0x682ca(%rip), %rsi
+00000001000205c6	movq	%r12, %rdi
+00000001000205c9	callq	*%r15
+00000001000205cc	movq	%rax, %rdi
+00000001000205cf	callq	0x100055ea2
+00000001000205d4	movq	%rax, %rbx
+00000001000205d7	movq	0x67a3a(%rip), %rsi
+00000001000205de	movq	%rbx, %rdi
+00000001000205e1	callq	*%r15
+00000001000205e4	movq	%rax, %rdi
+00000001000205e7	callq	0x100055ea2
+00000001000205ec	movq	%rax, %r15
+00000001000205ef	movq	0x53b2a(%rip), %r13
+00000001000205f6	movq	%rbx, %rdi
+00000001000205f9	callq	*%r13
+00000001000205fc	movq	%r12, %rdi
+00000001000205ff	movq	0x697c2(%rip), %r12
+0000000100020606	callq	*%r13
+0000000100020609	movq	-0x60(%rbp), %r13
+000000010002060d	movq	0x67a0c(%rip), %rsi
+0000000100020614	movq	%r14, -0x70(%rbp)
+0000000100020618	movq	%r14, %rdi
+000000010002061b	movq	%r15, -0x68(%rbp)
+000000010002061f	movq	%r15, %rdx
+0000000100020622	callq	*0x53ae8(%rip)
+0000000100020628	movq	%rax, -0x40(%rbp)
+000000010002062c	movl	-0x30(%rbp), %eax
+000000010002062f	testb	%al, %al
+0000000100020631	jne	0x10002069e
+0000000100020633	movq	(%r13,%r12), %r15
+0000000100020638	movq	%r15, %rdi
+000000010002063b	movq	0x68246(%rip), %rsi
+0000000100020642	movq	0x53ac7(%rip), %rax
+0000000100020649	movq	%rax, %r14
+000000010002064c	callq	*%r14
+000000010002064f	movq	%rax, %rdi
+0000000100020652	callq	0x100055ea2
+0000000100020657	movq	%rax, %rbx
+000000010002065a	movq	0x67c4f(%rip), %rsi
+
+──── GetEstimatedThickness:] @ 0000000100020bd8 ────
+
+──── findFirstPeakinArray::::] @ 00000001000211e4 ────
+
+──── FindPeaks::] @ 00000001000217de ────
+00000001000217de	pushq	%rbp
+00000001000217df	movq	%rsp, %rbp
+00000001000217e2	pushq	%r15
+00000001000217e4	pushq	%r14
+00000001000217e6	pushq	%r13
+00000001000217e8	pushq	%r12
+00000001000217ea	pushq	%rbx
+00000001000217eb	subq	$0x88, %rsp
+00000001000217f2	movl	%edx, %r14d
+00000001000217f5	movsd	%xmm0, -0x60(%rbp)
+00000001000217fa	movq	%rdi, %rbx
+00000001000217fd	movq	0x680a4(%rip), %rdi
+0000000100021804	movq	0x665f5(%rip), %rsi
+000000010002180b	movq	0x528fe(%rip), %r12
+0000000100021812	callq	*%r12
+0000000100021815	movq	0x665ec(%rip), %rsi
+000000010002181c	movq	%rax, %rdi
+000000010002181f	callq	*%r12
+0000000100021822	movq	%rax, %r13
+0000000100021825	movq	0x685b4(%rip), %rax
+000000010002182c	cmpq	$0x0, (%rbx,%rax)
+0000000100021831	je	0x100021a3d
+0000000100021837	movq	%r13, -0x70(%rbp)
+000000010002183b	movl	%r14d, -0xac(%rbp)
+0000000100021842	movq	0x6857f(%rip), %r15
+0000000100021849	movq	%rbx, %r13
+000000010002184c	movq	(%r13,%r15), %r14
+0000000100021851	movq	0x67030(%rip), %rsi
+0000000100021858	movq	%r14, %rdi
+000000010002185b	callq	*%r12
+000000010002185e	movq	%rax, %rdi
+0000000100021861	callq	0x100055ea2
+0000000100021866	movq	%rax, %rbx
+0000000100021869	movq	0x675b0(%rip), %rsi
+0000000100021870	movq	%rbx, %rdi
+0000000100021873	callq	*%r12
+0000000100021876	xorps	%xmm0, %xmm0
+0000000100021879	cvtsi2sd	%eax, %xmm0
+000000010002187d	movq	0x675a4(%rip), %rsi
+0000000100021884	movq	%r14, %rdi
+0000000100021887	callq	*%r12
+000000010002188a	movsd	%xmm0, -0x38(%rbp)
+000000010002188f	movq	0x5288a(%rip), %r14
+0000000100021896	movq	%rbx, %rdi
+0000000100021899	callq	*%r14
+000000010002189c	movq	(%r13,%r15), %rdi
+00000001000218a1	movq	0x66578(%rip), %rsi
+00000001000218a8	callq	*%r12
+00000001000218ab	movq	%rax, %rdi
+00000001000218ae	callq	0x100055ea2
+00000001000218b3	movq	%rax, %rbx
+00000001000218b6	movq	0x67573(%rip), %rsi
+00000001000218bd	movq	%rbx, %rdi
+00000001000218c0	callq	*%r12
+00000001000218c3	movsd	%xmm0, -0x50(%rbp)
+00000001000218c8	movq	%rbx, %rdi
+00000001000218cb	callq	*%r14
+00000001000218ce	movq	0x6850b(%rip), %rax
+00000001000218d5	movq	(%r13,%rax), %rdi
+00000001000218da	movq	0x67067(%rip), %rsi
+00000001000218e1	callq	*%r12
+00000001000218e4	movq	%rax, -0x30(%rbp)
+00000001000218e8	movq	(%r13,%r15), %rdi
+00000001000218ed	movq	0x665ac(%rip), %rsi
+00000001000218f4	callq	*%r12
+00000001000218f7	movq	%rax, %rdi
+00000001000218fa	callq	0x100055ea2
+00000001000218ff	movq	%rax, %rbx
+0000000100021902	movq	0x66b87(%rip), %rsi
+0000000100021909	movq	%rbx, %rdi
+000000010002190c	callq	*%r12
+000000010002190f	xorl	%r15d, %r15d
+0000000100021912	cmpl	$0x3, %eax
+0000000100021915	sete	%r15b
+0000000100021919	movq	%rbx, %rdi
+000000010002191c	callq	*%r14
+000000010002191f	movq	0x684aa(%rip), %rax
+0000000100021926	movslq	(%r13,%rax), %rbx
+000000010002192b	movl	%ebx, %ecx
+000000010002192d	testq	%rbx, %rbx
+0000000100021930	xorps	%xmm0, %xmm0
+0000000100021933	cvtsi2sd	%ecx, %xmm0
+0000000100021937	movq	0x6849a(%rip), %rdx
+000000010002193e	leaq	0x354bb(%rip), %rax
+0000000100021945	movsd	(%rax,%r15,8), %xmm1
+000000010002194b	movq	%r13, -0x40(%rbp)
+000000010002194f	mulsd	(%r13,%rdx), %xmm1
+0000000100021956	movq	%rcx, %r13
+0000000100021959	addsd	%xmm0, %xmm1
+000000010002195d	cvttsd2si	%xmm1, %r12d
+0000000100021962	js	0x10002198d
+
+──── FindClosestPeak:] @ 0000000100022925 ────
+0000000100022925	pushq	%rbp
+0000000100022926	movq	%rsp, %rbp
+0000000100022929	pushq	%r15
+000000010002292b	pushq	%r14
+000000010002292d	pushq	%r13
+000000010002292f	pushq	%r12
+0000000100022931	pushq	%rbx
+0000000100022932	subq	$0x18, %rsp
+0000000100022936	movsd	%xmm0, -0x30(%rbp)
+000000010002293b	movq	%rdi, %r15
+000000010002293e	movq	0x65f7b(%rip), %r14
+0000000100022945	movq	0x517c4(%rip), %r12
+000000010002294c	movq	%r14, %rsi
+000000010002294f	callq	*%r12
+0000000100022952	mulsd	0x33bfe(%rip), %xmm0
+000000010002295a	addsd	0x33be6(%rip), %xmm0
+0000000100022962	cvttsd2si	%xmm0, %r13d
+0000000100022967	movq	%r15, %rdi
+000000010002296a	movq	%r14, %rsi
+000000010002296d	callq	*%r12
+0000000100022970	movq	%r15, %rdi
+0000000100022973	movq	%r14, %rsi
+0000000100022976	callq	*%r12
+0000000100022979	movsd	0x33daf(%rip), %xmm1
+0000000100022981	addsd	-0x30(%rbp), %xmm1
+0000000100022986	mulsd	%xmm0, %xmm1
+000000010002298a	movq	0x6743f(%rip), %rax
+0000000100022991	xorps	%xmm0, %xmm0
+0000000100022994	cvtsi2sdl	(%r15,%rax), %xmm0
+000000010002299a	addsd	%xmm1, %xmm0
+000000010002299e	xorpd	%xmm1, %xmm1
+00000001000229a2	maxsd	%xmm0, %xmm1
+00000001000229a6	cmpunordsd	%xmm0, %xmm0
+00000001000229ab	andnpd	%xmm1, %xmm0
+00000001000229af	cvttsd2si	%xmm0, %ebx
+00000001000229b3	xorps	%xmm0, %xmm0
+00000001000229b6	cvtsi2sd	%r13d, %xmm0
+00000001000229bb	movsd	%xmm0, -0x38(%rbp)
+00000001000229c0	movq	%r15, %rdi
+00000001000229c3	movq	%r14, %rsi
+00000001000229c6	callq	*%r12
+00000001000229c9	movsd	-0x30(%rbp), %xmm1
+00000001000229ce	addsd	0x33b72(%rip), %xmm1
+00000001000229d6	mulsd	%xmm0, %xmm1
+00000001000229da	movq	0x673ef(%rip), %rax
+00000001000229e1	movl	(%r15,%rax), %edx
+00000001000229e5	xorps	%xmm0, %xmm0
+00000001000229e8	cvtsi2sd	%edx, %xmm0
+00000001000229ec	addsd	%xmm1, %xmm0
+00000001000229f0	movsd	-0x38(%rbp), %xmm3
+00000001000229f5	movapd	%xmm3, %xmm1
+00000001000229f9	cmpunordsd	%xmm1, %xmm1
+00000001000229fe	movapd	%xmm1, %xmm2
+0000000100022a02	andpd	%xmm0, %xmm2
+0000000100022a06	minsd	%xmm3, %xmm0
+0000000100022a0a	andnpd	%xmm0, %xmm1
+0000000100022a0e	orpd	%xmm2, %xmm1
+0000000100022a12	cvttsd2si	%xmm1, %eax
+0000000100022a16	cmpl	%eax, %ebx
+0000000100022a18	jge	0x100022a77
+0000000100022a1a	movslq	%ebx, %rsi
+0000000100022a1d	cltq
+0000000100022a1f	leaq	0x714fa(%rip), %rcx
+0000000100022a26	leaq	(%rcx,%rsi,8), %rcx
+0000000100022a2a	subl	%edx, %ebx
+0000000100022a2c	subq	%rsi, %rax
+0000000100022a2f	xorl	%esi, %esi
+0000000100022a31	xorl	%edx, %edx
+0000000100022a33	movl	%esi, %edi
+0000000100022a35	movsd	(%rcx), %xmm0
+0000000100022a39	xorps	%xmm1, %xmm1
+0000000100022a3c	cvtsi2sd	%edi, %xmm1
+0000000100022a40	ucomisd	%xmm1, %xmm0
+0000000100022a44	cvttsd2si	%xmm0, %esi
+0000000100022a48	cmoval	%ebx, %edx
+0000000100022a4b	cmovbel	%edi, %esi
+0000000100022a4e	addq	$0x8, %rcx
+0000000100022a52	incl	%ebx
+0000000100022a54	decq	%rax
+0000000100022a57	jne	0x100022a33
+0000000100022a59	testl	%esi, %esi
+0000000100022a5b	xorpd	%xmm0, %xmm0
+0000000100022a5f	jle	0x100022a7b
+0000000100022a61	movq	0x67380(%rip), %rax
+0000000100022a68	xorps	%xmm0, %xmm0
+0000000100022a6b	cvtsi2sd	%edx, %xmm0
+0000000100022a6f	mulsd	(%r15,%rax), %xmm0
+0000000100022a75	jmp	0x100022a7b
+0000000100022a77	xorpd	%xmm0, %xmm0
+0000000100022a7b	addq	$0x18, %rsp
+0000000100022a7f	popq	%rbx
+
+──── GetPeakLocation::] @ 000000010003619e ────
+000000010003619e	pushq	%rbp
+000000010003619f	movq	%rsp, %rbp
+00000001000361a2	pushq	%r15
+00000001000361a4	pushq	%r14
+00000001000361a6	pushq	%r13
+00000001000361a8	pushq	%r12
+00000001000361aa	pushq	%rbx
+00000001000361ab	subq	$0x48, %rsp
+00000001000361af	movl	%ecx, -0x50(%rbp)
+00000001000361b2	movq	0x3dedf(%rip), %rax
+00000001000361b9	movq	(%rax), %rax
+00000001000361bc	movq	%rax, -0x30(%rbp)
+00000001000361c0	movq	0x54199(%rip), %rax
+00000001000361c7	movslq	(%rdi,%rax), %r9
+00000001000361cb	movq	0x54186(%rip), %rax
+00000001000361d2	movq	%rdi, -0x48(%rbp)
+00000001000361d6	movslq	(%rdi,%rax), %r11
+00000001000361da	movl	%r9d, %eax
+00000001000361dd	subl	%r11d, %eax
+00000001000361e0	incl	%eax
+00000001000361e2	movq	%rax, -0x38(%rbp)
+00000001000361e6	leaq	0xf(,%rax,8), %rax
+00000001000361ee	movabsq	$0xffffffff0, %rcx              ## imm = 0xFFFFFFFF0
+00000001000361f8	andq	%rax, %rcx
+00000001000361fb	movq	%rsp, %rbx
+00000001000361fe	subq	%rcx, %rbx
+0000000100036201	movq	%rbx, %rsp
+0000000100036204	movl	%r9d, %eax
+0000000100036207	subl	%r11d, %eax
+000000010003620a	movl	%eax, -0x40(%rbp)
+000000010003620d	jle	0x10003631c
+0000000100036213	movq	0x541ae(%rip), %rax
+000000010003621a	movq	-0x48(%rbp), %rcx
+000000010003621e	movl	(%rcx,%rax), %eax
+0000000100036221	imull	%eax, %edx
+0000000100036224	cvtsi2ss	%edx, %xmm0
+0000000100036228	divss	0x70df4(%rip), %xmm0
+0000000100036230	cvtss2sd	%xmm0, %xmm0
+0000000100036234	addsd	0x20394(%rip), %xmm0
+000000010003623c	cvttsd2si	%xmm0, %ecx
+0000000100036240	leal	-0xa(%rcx), %edx
+0000000100036243	addl	$0xa, %ecx
+0000000100036246	decl	%eax
+0000000100036248	xorps	%xmm0, %xmm0
+000000010003624b	cvtsi2sd	%edx, %xmm0
+000000010003624f	xorpd	%xmm1, %xmm1
+0000000100036253	maxsd	%xmm0, %xmm1
+0000000100036257	cmpunordsd	%xmm0, %xmm0
+000000010003625c	andnpd	%xmm1, %xmm0
+0000000100036260	cvttsd2si	%xmm0, %r12d
+0000000100036265	xorps	%xmm0, %xmm0
+0000000100036268	cvtsi2sd	%ecx, %xmm0
+000000010003626c	xorps	%xmm1, %xmm1
+000000010003626f	cvtsi2sd	%eax, %xmm1
+0000000100036273	movapd	%xmm0, %xmm2
+0000000100036277	cmpunordsd	%xmm2, %xmm2
+000000010003627c	movapd	%xmm2, %xmm3
+0000000100036280	andpd	%xmm1, %xmm3
+0000000100036284	minsd	%xmm0, %xmm1
+0000000100036288	andnpd	%xmm1, %xmm2
+000000010003628c	orpd	%xmm3, %xmm2
+0000000100036290	cvttsd2si	%xmm2, %r13d
+0000000100036295	movl	$0x1, %eax
+000000010003629a	subl	%r12d, %eax
+000000010003629d	addl	%r13d, %eax
+00000001000362a0	xorps	%xmm0, %xmm0
+00000001000362a3	cvtsi2sd	%eax, %xmm0
+00000001000362a7	movq	0x54132(%rip), %rsi
+00000001000362ae	movslq	%r12d, %rdi
+00000001000362b1	movslq	%r13d, %rax
+00000001000362b4	leaq	-0x1(%rdi), %r15
+00000001000362b8	shll	$0xb, %edi
+00000001000362bb	addl	%r11d, %edi
+00000001000362be	movq	%r11, %rcx
+00000001000362c1	movq	%rbx, %r8
+00000001000362c4	cmpl	%r13d, %r12d
+00000001000362c7	xorpd	%xmm1, %xmm1
+00000001000362cb	jg	0x100036300
+00000001000362cd	movq	-0x48(%rbp), %rdx
+00000001000362d1	movq	(%rdx,%rsi), %rdx
+00000001000362d5	xorpd	%xmm1, %xmm1
+00000001000362d9	movl	%edi, %ebx
+00000001000362db	movq	%r15, %r10
+00000001000362de	movslq	%ebx, %rbx
+00000001000362e1	movzbl	(%rdx,%rbx), %r14d
+00000001000362e6	xorps	%xmm2, %xmm2
+00000001000362e9	cvtsi2sd	%r14d, %xmm2
+00000001000362ee	addsd	%xmm2, %xmm1
+00000001000362f2	incq	%r10
+00000001000362f5	addl	$0x800, %ebx                    ## imm = 0x800
+00000001000362fb	cmpq	%rax, %r10
+
+──── OLDGetPeakLocation::] @ 0000000100035f16 ────
+0000000100035f16	pushq	%rbp
+0000000100035f17	movq	%rsp, %rbp
+0000000100035f1a	pushq	%r14
+0000000100035f1c	pushq	%rbx
+0000000100035f1d	subq	$0x10, %rsp
+0000000100035f21	movq	0x3e170(%rip), %rax
+0000000100035f28	movq	(%rax), %rax
+0000000100035f2b	movq	%rax, -0x18(%rbp)
+0000000100035f2f	movq	0x5445a(%rip), %rax
+0000000100035f36	movsd	0x8(%rdi,%rax), %xmm0
+0000000100035f3c	cvttsd2si	%xmm0, %r9d
+0000000100035f41	addsd	0x205ff(%rip), %xmm0
+0000000100035f49	cvttsd2si	%xmm0, %eax
+0000000100035f4d	leaq	0xf(,%rax,4), %rax
+0000000100035f55	movabsq	$0x7fffffff0, %rsi              ## imm = 0x7FFFFFFF0
+0000000100035f5f	andq	%rax, %rsi
+0000000100035f62	movq	%rsp, %r10
+0000000100035f65	subq	%rsi, %r10
+0000000100035f68	movq	%r10, %rsp
+0000000100035f6b	movq	0x54456(%rip), %rax
+0000000100035f72	imull	(%rdi,%rax), %edx
+0000000100035f76	xorps	%xmm0, %xmm0
+0000000100035f79	cvtsi2ss	%edx, %xmm0
+0000000100035f7d	divss	0x7109f(%rip), %xmm0
+0000000100035f85	cvtss2sd	%xmm0, %xmm0
+0000000100035f89	addsd	0x2063f(%rip), %xmm0
+0000000100035f91	cvttsd2si	%xmm0, %eax
+0000000100035f95	shll	$0xb, %eax
+0000000100035f98	movq	0x543b9(%rip), %rdx
+0000000100035f9f	movslq	(%rdi,%rdx), %rsi
+0000000100035fa3	movslq	%eax, %r14
+0000000100035fa6	addq	%rsi, %r14
+0000000100035fa9	movq	0x54430(%rip), %rax
+0000000100035fb0	movq	(%rdi,%rax), %rsi
+0000000100035fb4	movzbl	(%rsi,%r14), %eax
+0000000100035fb9	movl	%eax, (%r10)
+0000000100035fbc	movss	0x7105c(%rip), %xmm0
+0000000100035fc4	cvttss2si	%xmm0, %eax
+0000000100035fc8	addl	%r14d, %eax
+0000000100035fcb	cltq
+0000000100035fcd	movzbl	(%rsi,%rax), %eax
+0000000100035fd1	movl	%eax, 0x4(%r10)
+0000000100035fd5	leal	-0x1(%r9), %r8d
+0000000100035fd9	cvtsi2ss	%r8d, %xmm1
+0000000100035fde	leal	-0x2(%r9), %eax
+0000000100035fe2	cvtsi2ss	%eax, %xmm2
+0000000100035fe6	leal	-0x3(%r9), %eax
+0000000100035fea	cvtsi2ss	%eax, %xmm3
+0000000100035fee	unpcklps	%xmm3, %xmm1                    ## xmm1 = xmm1[0],xmm3[0],xmm1[1],xmm3[1]
+0000000100035ff1	movss	0x20c0b(%rip), %xmm3
+0000000100035ff9	unpcklps	%xmm2, %xmm3                    ## xmm3 = xmm3[0],xmm2[0],xmm3[1],xmm2[1]
+0000000100035ffc	unpcklps	%xmm1, %xmm3                    ## xmm3 = xmm3[0],xmm1[0],xmm3[1],xmm1[1]
+0000000100035fff	movaps	%xmm0, %xmm1
+0000000100036002	shufps	$0x0, %xmm1, %xmm1              ## xmm1 = xmm1[0,0,0,0]
+0000000100036006	mulps	%xmm3, %xmm1
+0000000100036009	cvttps2dq	%xmm1, %xmm1
+000000010003600d	movd	%r14d, %xmm2
+0000000100036012	pshufd	$0x0, %xmm2, %xmm2              ## xmm2 = xmm2[0,0,0,0]
+0000000100036017	paddd	%xmm1, %xmm2
+000000010003601b	pshufd	$0x4e, %xmm2, %xmm1             ## xmm1 = xmm2[2,3,0,1]
+0000000100036020	movq	%xmm1, %r11
+0000000100036025	movq	%xmm2, %rax
+000000010003602a	movslq	%eax, %rbx
+000000010003602d	movzbl	(%rsi,%rbx), %ebx
+0000000100036031	movl	%ebx, 0x8(%r10)
+0000000100036035	sarq	$0x20, %rax
+0000000100036039	movzbl	(%rsi,%rax), %ebx
+000000010003603d	movslq	%r9d, %rax
+0000000100036040	movl	%ebx, -0x4(%r10,%rax,4)
+0000000100036045	movslq	%r11d, %rbx
+0000000100036048	movzbl	(%rsi,%rbx), %ebx
+000000010003604c	movl	%ebx, -0x8(%r10,%rax,4)
+0000000100036051	sarq	$0x20, %r11
+0000000100036055	movzbl	(%rsi,%r11), %ebx
+000000010003605a	movl	%ebx, -0xc(%r10,%rax,4)
+000000010003605f	addl	$-0x4, %eax
+0000000100036062	cmpl	$0x3, %eax
+0000000100036065	jl	0x1000360c6
+0000000100036067	movslq	%eax, %r11
+000000010003606a	movl	$0x6, %r9d
+0000000100036070	movsd	0x20588(%rip), %xmm1
+0000000100036078	pxor	%xmm2, %xmm2
+000000010003607c	movl	$0x5, %eax
+0000000100036081	movl	%r9d, %ebx
+0000000100036084	xorps	%xmm3, %xmm3
+0000000100036087	cvtsi2ss	%ebx, %xmm3
+000000010003608b	mulss	%xmm0, %xmm3
+000000010003608f	cvttss2si	%xmm3, %edx
+0000000100036093	addl	%r14d, %edx
+0000000100036096	movslq	%edx, %rdx
+0000000100036099	movzbl	(%rsi,%rdx), %edx
+
+──── GetPeakLocation::] @ 000000010004e72b ────
+000000010004e72b	pushq	%rbp
+000000010004e72c	movq	%rsp, %rbp
+000000010004e72f	pushq	%r14
+000000010004e731	pushq	%rbx
+000000010004e732	subq	$0x10, %rsp
+000000010004e736	movq	0x2595b(%rip), %rax
+000000010004e73d	movq	(%rax), %rax
+000000010004e740	movq	%rax, -0x18(%rbp)
+000000010004e744	movq	0x3bf6d(%rip), %rax
+000000010004e74b	movsd	0x8(%rdi,%rax), %xmm0
+000000010004e751	cvttsd2si	%xmm0, %r9d
+000000010004e756	addsd	0x7dea(%rip), %xmm0
+000000010004e75e	cvttsd2si	%xmm0, %eax
+000000010004e762	leaq	0xf(,%rax,4), %rax
+000000010004e76a	movabsq	$0x7fffffff0, %rsi              ## imm = 0x7FFFFFFF0
+000000010004e774	andq	%rax, %rsi
+000000010004e777	movq	%rsp, %r10
+000000010004e77a	subq	%rsi, %r10
+000000010004e77d	movq	%r10, %rsp
+000000010004e780	movq	0x3bf19(%rip), %rsi
+000000010004e787	movl	%edx, %eax
+000000010004e789	cltd
+000000010004e78a	idivl	(%rdi,%rsi)
+000000010004e78d	shll	$0xb, %eax
+000000010004e790	movq	0x3bee9(%rip), %rdx
+000000010004e797	movslq	(%rdi,%rdx), %rdx
+000000010004e79b	movslq	%eax, %r14
+000000010004e79e	addq	%rdx, %r14
+000000010004e7a1	movq	0x3bf48(%rip), %rdx
+000000010004e7a8	movq	(%rdi,%rdx), %rdx
+000000010004e7ac	movzbl	(%rdx,%r14), %esi
+000000010004e7b1	movl	%esi, (%r10)
+000000010004e7b4	movss	0x5c674(%rip), %xmm0
+000000010004e7bc	cvttss2si	%xmm0, %esi
+000000010004e7c0	addl	%r14d, %esi
+000000010004e7c3	movslq	%esi, %rsi
+000000010004e7c6	movzbl	(%rdx,%rsi), %esi
+000000010004e7ca	movl	%esi, 0x4(%r10)
+000000010004e7ce	leal	-0x1(%r9), %r8d
+000000010004e7d2	cvtsi2ss	%r8d, %xmm1
+000000010004e7d7	leal	-0x2(%r9), %esi
+000000010004e7db	cvtsi2ss	%esi, %xmm2
+000000010004e7df	leal	-0x3(%r9), %esi
+000000010004e7e3	cvtsi2ss	%esi, %xmm3
+000000010004e7e7	unpcklps	%xmm3, %xmm1                    ## xmm1 = xmm1[0],xmm3[0],xmm1[1],xmm3[1]
+000000010004e7ea	movss	0x8412(%rip), %xmm3
+000000010004e7f2	unpcklps	%xmm2, %xmm3                    ## xmm3 = xmm3[0],xmm2[0],xmm3[1],xmm2[1]
+000000010004e7f5	unpcklps	%xmm1, %xmm3                    ## xmm3 = xmm3[0],xmm1[0],xmm3[1],xmm1[1]
+000000010004e7f8	movaps	%xmm0, %xmm1
+000000010004e7fb	shufps	$0x0, %xmm1, %xmm1              ## xmm1 = xmm1[0,0,0,0]
+000000010004e7ff	mulps	%xmm3, %xmm1
+000000010004e802	cvttps2dq	%xmm1, %xmm1
+000000010004e806	movd	%r14d, %xmm2
+000000010004e80b	pshufd	$0x0, %xmm2, %xmm2              ## xmm2 = xmm2[0,0,0,0]
+000000010004e810	paddd	%xmm1, %xmm2
+000000010004e814	pshufd	$0x4e, %xmm2, %xmm1             ## xmm1 = xmm2[2,3,0,1]
+000000010004e819	movq	%xmm1, %r11
+000000010004e81e	movq	%xmm2, %rsi
+000000010004e823	movslq	%esi, %rbx
+000000010004e826	movzbl	(%rdx,%rbx), %ebx
+000000010004e82a	movl	%ebx, 0x8(%r10)
+000000010004e82e	sarq	$0x20, %rsi
+000000010004e832	movzbl	(%rdx,%rsi), %ebx
+000000010004e836	movslq	%r9d, %rsi
+000000010004e839	movl	%ebx, -0x4(%r10,%rsi,4)
+000000010004e83e	movslq	%r11d, %rbx
+000000010004e841	movzbl	(%rdx,%rbx), %ebx
+000000010004e845	movl	%ebx, -0x8(%r10,%rsi,4)
+000000010004e84a	sarq	$0x20, %r11
+000000010004e84e	movzbl	(%rdx,%r11), %ebx
+000000010004e853	movl	%ebx, -0xc(%r10,%rsi,4)
+000000010004e858	addl	$-0x4, %esi
+000000010004e85b	cmpl	$0x3, %esi
+000000010004e85e	jl	0x10004e8be
+000000010004e860	movslq	%esi, %r11
+000000010004e863	movl	$0x6, %r9d
+000000010004e869	movsd	0x7d8f(%rip), %xmm1
+000000010004e871	pxor	%xmm2, %xmm2
+000000010004e875	movl	$0x5, %esi
+000000010004e87a	movl	%r9d, %ebx
+000000010004e87d	xorps	%xmm3, %xmm3
+000000010004e880	cvtsi2ss	%ebx, %xmm3
+000000010004e884	mulss	%xmm0, %xmm3
+000000010004e888	cvttss2si	%xmm3, %eax
+000000010004e88c	addl	%r14d, %eax
+000000010004e88f	cltq
+000000010004e891	movzbl	(%rdx,%rax), %eax
+000000010004e895	xorps	%xmm3, %xmm3
+000000010004e898	cvtsi2sd	%eax, %xmm3
+000000010004e89c	addsd	%xmm3, %xmm2
+000000010004e8a0	decl	%ebx
+
+──── readbxMultipleSignals:::] @ 000000010002e2f7 ────
+000000010002e2f7	pushq	%rbp
+000000010002e2f8	movq	%rsp, %rbp
+000000010002e2fb	cmpb	$0x1, 0x71c2e(%rip)
+000000010002e302	jne	0x10002e319
+000000010002e304	movb	$0x0, 0x6dc19(%rip)
+000000010002e30b	movzbl	%dl, %edi
+000000010002e30e	movl	%ecx, %esi
+000000010002e310	movq	%r8, %rdx
+000000010002e313	popq	%rbp
+000000010002e314	jmp	0x10002db76
+000000010002e319	xorl	%eax, %eax
+000000010002e31b	popq	%rbp
+000000010002e31c	retq
+-[bodymetrixDriver getdeviceSerialNumber]:
+000000010002e31d	pushq	%rbp
+000000010002e31e	movq	%rsp, %rbp
+000000010002e321	pushq	%rbx
+000000010002e322	pushq	%rax
+000000010002e323	movq	%rdi, %rbx
+000000010002e326	cmpb	$0x1, 0x71c03(%rip)
+000000010002e32d	jne	0x10002e33f
+000000010002e32f	movq	0x71c2a(%rip), %rdx
+000000010002e336	movq	0x5aeeb(%rip), %rsi
+000000010002e33d	jmp	0x10002e34d
+000000010002e33f	movq	0x5aee2(%rip), %rsi
+000000010002e346	leaq	0x464c3(%rip), %rdx
+000000010002e34d	movq	%rbx, %rdi
+000000010002e350	callq	*0x45dba(%rip)
+000000010002e356	movq	0x5bea3(%rip), %rax
+000000010002e35d	movq	(%rbx,%rax), %rdi
+000000010002e361	addq	$0x8, %rsp
+000000010002e365	popq	%rbx
+000000010002e366	popq	%rbp
+000000010002e367	jmp	0x100055e9c
+-[bodymetrixDriver setLowSignalThreshold:]:
+000000010002e36c	pushq	%rbp
+000000010002e36d	movq	%rsp, %rbp
+000000010002e370	movl	%edx, 0x6dbaa(%rip)
+000000010002e376	popq	%rbp
+000000010002e377	retq
+-[bodymetrixDriver isSignalLow]:
+000000010002e378	pushq	%rbp
+000000010002e379	movq	%rsp, %rbp
+000000010002e37c	movb	0x6dba2(%rip), %al
+000000010002e382	andb	0x71ba8(%rip), %al
+000000010002e388	movzbl	%al, %eax
+000000010002e38b	andl	$0x1, %eax
+000000010002e38e	popq	%rbp
+000000010002e38f	retq
+-[bodymetrixDriver signalMax]:
+000000010002e390	pushq	%rbp
+000000010002e391	movq	%rsp, %rbp
+000000010002e394	movl	0x6db8e(%rip), %eax
+000000010002e39a	popq	%rbp
+000000010002e39b	retq
+-[bodymetrixDriver NumberofSignalsRead]:
+000000010002e39c	pushq	%rbp
+000000010002e39d	movq	%rsp, %rbp
+000000010002e3a0	movl	0x743da(%rip), %eax
+000000010002e3a6	popq	%rbp
+000000010002e3a7	retq
+-[bodymetrixDriver defaultgain]:
+000000010002e3a8	pushq	%rbp
+000000010002e3a9	movq	%rsp, %rbp
+000000010002e3ac	movq	0x5bde5(%rip), %rax
+000000010002e3b3	movb	(%rdi,%rax), %al
+000000010002e3b6	movzbl	%al, %eax
+000000010002e3b9	popq	%rbp
+000000010002e3ba	retq
+-[bodymetrixDriver setDefaultgain:]:
+000000010002e3bb	pushq	%rbp
+000000010002e3bc	movq	%rsp, %rbp
+000000010002e3bf	movq	0x5bdd2(%rip), %rax
+000000010002e3c6	movb	%dl, (%rdi,%rax)
+000000010002e3c9	popq	%rbp
+000000010002e3ca	retq
+-[bodymetrixDriver deviceName]:
+000000010002e3cb	pushq	%rbp
+000000010002e3cc	movq	%rsp, %rbp
+000000010002e3cf	movq	0x5be32(%rip), %rdx
+000000010002e3d6	movl	$0x1, %ecx
+000000010002e3db	popq	%rbp
+000000010002e3dc	jmp	0x100055e60
+-[bodymetrixDriver setDeviceName:]:
+000000010002e3e1	pushq	%rbp
+000000010002e3e2	movq	%rsp, %rbp
+000000010002e3e5	movq	0x5be1c(%rip), %rcx
+000000010002e3ec	popq	%rbp
+000000010002e3ed	jmp	0x100055ea8
+-[bodymetrixDriver deviceSerialNumber]:
+000000010002e3f2	pushq	%rbp
+=== DONE ===

@@ -1,0 +1,15 @@
+=== DIRECT USB TEST Tue Sep  8 20:21:40 PDT 2026 ===
+
+--- STATUS ---
+Connected: True
+Mode:      scanoprobe
+VID:PID:   0x04D8:0xFBB7
+Message:   Probe ready — gel, place on skin, press SEND on wand
+
+--- DESCRIBE ---
+
+--- BX 20s (gel + skin + HOLD SEND) ---
+══════════════════════════════════════════════════
+  BODYVIEW BX PROTOCOL — gel, skin, HOLD SEND
+  Uses bytes found in binary: 0xA0 0x01
+══════════════════════════════════════════════════

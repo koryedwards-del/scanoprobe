@@ -1,0 +1,306 @@
+:root {
+  --housing: #1c1c1c;
+  --face: #141414;
+  --lcd-bg: #c8d4b8;
+  --lcd-text: #1a1a1a;
+  --led-off: #3a1515;
+  --led-on: #e82828;
+  --led-tip: #ff5533;
+  --led-glow: rgba(255, 50, 30, 0.55);
+  --hold-amber: #e8a020;
+  --hold-glow: rgba(232, 160, 32, 0.55);
+  --label: #8a8a8a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  background: #2a2a2a;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.wrap {
+  width: min(420px, 96vw);
+  text-align: center;
+}
+
+.probe-line {
+  font-size: 0.75rem;
+  color: #888;
+  margin: 0 0 0.75rem;
+}
+.probe-line.ok { color: #6c6; }
+.probe-line.warn { color: #ca8; }
+
+.device {
+  background: linear-gradient(180deg, #2a2a2a 0%, var(--housing) 40%, #111 100%);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.face {
+  background: var(--face);
+  border-radius: 8px;
+  padding: 1rem 0.85rem 0.9rem;
+  border: 1px solid #0a0a0a;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.scanoprobe-logo {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: #e0e0e0;
+  text-align: center;
+}
+
+.scanoprobe-logo sup {
+  font-size: 0.45em;
+  letter-spacing: 0;
+}
+
+/* LCD — matches hardware: pale green, black digits */
+.lcd-panel {
+  background: var(--lcd-bg);
+  border: 2px inset #9aaa8a;
+  border-radius: 4px;
+  padding: 0.45rem 0.55rem 0.35rem;
+  margin-bottom: 0.65rem;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.15);
+  min-height: 5.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.lcd-top,
+.lcd-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--lcd-text);
+  letter-spacing: 0.06em;
+}
+
+.lcd-value {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Courier New", "LCD", monospace;
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--lcd-text);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 0.15rem 0;
+}
+
+.lcd-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #444;
+}
+
+.device:not(.locked) .live-dot {
+  background: #2d8a2d;
+  box-shadow: 0 0 6px rgba(45, 138, 45, 0.8);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.device.locked .live-dot {
+  background: var(--hold-amber);
+  box-shadow: 0 0 6px var(--hold-glow);
+}
+
+.device.locked .lcd-live::before {
+  content: "HOLD ";
+}
+
+.device.locked .lcd-live {
+  font-size: 0;
+}
+
+.device.locked .lcd-live::before {
+  font-size: 0.65rem;
+}
+
+@keyframes pulse {
+  50% { opacity: 0.45; }
+}
+
+/* Scale + LED bar */
+.scale-block {
+  margin-bottom: 0.85rem;
+}
+
+.tick-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.55rem;
+  color: var(--label);
+  padding: 0 2px;
+  margin-bottom: 3px;
+}
+
+.top-ticks span:empty {
+  flex: 1;
+}
+
+.led-well {
+  background: #0a0a0a;
+  border-radius: 3px;
+  padding: 5px 4px;
+  border: 1px inset #000;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.led-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+}
+
+.led {
+  flex: 1;
+  min-width: 0;
+  border-radius: 1px;
+  background: var(--led-off);
+}
+
+.led.on {
+  background: var(--led-on);
+  box-shadow: 0 0 3px var(--led-glow);
+}
+
+.led.bracket-core {
+  background: var(--led-tip);
+  box-shadow: 0 0 5px var(--led-glow);
+}
+
+.led.bracket-edge {
+  background: var(--led-tip);
+}
+
+.led.bracket-edge.bounce {
+  animation: led-bounce 0.2s ease-in-out 2;
+}
+
+@keyframes led-bounce {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.device.locked .led.on {
+  background: var(--hold-amber);
+  box-shadow: 0 0 4px var(--hold-glow);
+}
+
+.depth-label {
+  margin-top: 4px;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  color: var(--label);
+  text-align: center;
+}
+
+/* Three buttons — matches hardware layout */
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.btn-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.rubber-btn,
+.hold-btn {
+  width: 100%;
+  max-width: 5.5rem;
+  height: 3rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #e8e8e8;
+  background: linear-gradient(180deg, #3a3a3a, #222 60%, #181818);
+  box-shadow:
+    0 2px 0 #0a0a0a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.rubber-btn:active:not(:disabled),
+.hold-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.rubber-btn:disabled,
+.hold-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.hold-btn {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #ccc;
+}
+
+.hold-btn.locked {
+  background: linear-gradient(180deg, #f0b840, var(--hold-amber) 55%, #c87810);
+  color: #1a1000;
+  box-shadow: 0 0 14px var(--hold-glow);
+}
+
+.btn-caption {
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.workflow {
+  margin-top: 0.85rem;
+  font-size: 0.7rem;
+  color: #666;
+  line-height: 1.45;
+}
+
+.new-link {
+  margin-top: 0.5rem;
+  background: none;
+  border: none;
+  color: #8ab;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.hidden { display: none !important; }

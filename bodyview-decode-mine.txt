@@ -1,0 +1,648 @@
+BodyView DECODE miner — Tue Sep  8 20:45:50 PDT 2026
+App: /Applications/BodyViewPersonal.app
+
+=== SYMBOLS ===
+--- /Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal ---
+0000000100000000 T __mh_execute_header
+0000000100008f28 t -[BodyViewPersonalAppDelegate ChangePointThicknessValue:]
+000000010000e4cd t -[BodyViewPersonalAppDelegate GetThicknessMeasurementfromAverageSignal]
+000000010000ebcc t -[BodyViewPersonalAppDelegate initthicknessParms]
+000000010001e447 t -[BodyViewPersonalAppDelegate bodymetrixDevice]
+000000010001e45d t -[BodyViewPersonalAppDelegate setBodymetrixDevice:]
+000000010001e46e t -[BodyViewPersonalAppDelegate bodymetrixBMData]
+000000010001e484 t -[BodyViewPersonalAppDelegate setBodymetrixBMData:]
+000000010001e495 t -[BodyViewPersonalAppDelegate bodymetrixBVAlgo]
+000000010001e4ab t -[BodyViewPersonalAppDelegate setBodymetrixBVAlgo:]
+000000010001e5be t -[BodyViewPersonalAppDelegate estimatedThickness]
+000000010001e5d4 t -[BodyViewPersonalAppDelegate setEstimatedThickness:]
+000000010001ffcc t -[BVthicknessMeasurement init]
+0000000100020026 t -[BVthicknessMeasurement validmeasurement]
+0000000100020036 t -[BVthicknessMeasurement setValidmeasurement:]
+0000000100020046 t -[BVthicknessMeasurement fatThicknessMeasurement]
+000000010002005c t -[BVthicknessMeasurement setFatThicknessMeasurement:]
+0000000100020072 t -[BVthicknessMeasurement muscleThicknessMeasurement]
+0000000100020088 t -[BVthicknessMeasurement setMuscleThicknessMeasurement:]
+000000010002009e t -[peakpoint init]
+000000010002010d t -[peakpoint validmeasurement]
+000000010002011d t -[peakpoint setValidmeasurement:]
+000000010002012d t -[peakpoint threshold]
+0000000100020143 t -[peakpoint setThreshold:]
+0000000100020159 t -[peakpoint maxthickness]
+000000010002016f t -[peakpoint setMaxthickness:]
+0000000100020185 t -[peakpoint peakthickness]
+000000010002019b t -[peakpoint setPeakthickness:]
+00000001000201b1 t -[peakpoint peakamplitude]
+00000001000201c7 t -[peakpoint setPeakamplitude:]
+00000001000204bd t -[BVAlgo GetEstimatedThickness::::]
+0000000100020bd8 t -[BVAlgo GetEstimatedThickness:]
+00000001000211e4 t -[BVAlgo findFirstPeakinArray::::]
+00000001000217de t -[BVAlgo FindPeaks::]
+0000000100022925 t -[BVAlgo FindClosestPeak:]
+0000000100022e47 t -[BVstMS Thickness]
+0000000100022e5d t -[BVstMS setThickness:]
+0000000100022fe3 t -[BVstDefaults Gain]
+0000000100022ff3 t -[BVstDefaults setGain:]
+0000000100023219 t -[BVstDefaults ThicknessError]
+000000010002322f t -[BVstDefaults setThicknessError:]
+000000010002364a t -[BVstPoint Gain]
+000000010002365a t -[BVstPoint setGain:]
+000000010002a059 t -[BVBmData GetLastThicknessMeasurementAtPoint:]
+000000010002abbe t -[BVBmData GetThicknessScanValues:::]
+000000010002cb43 t -[bodymetrixDriver init]
+000000010002d7ca t _writeGainandRead
+000000010002d9f4 t _writeGainandReadNoAverage
+000000010002db76 t _readMultipleSignals
+000000010002dd2b t -[bodymetrixDriver initDevice]
+000000010002dfee t -[bodymetrixDriver readinInfoString]
+000000010002e0d0 t -[bodymetrixDriver readinCalibrationData:]
+000000010002e202 t -[bodymetrixDriver isConnected]
+000000010002e20f t -[bodymetrixDriver bxTimedOut]
+000000010002e21c t -[bodymetrixDriver bxNumberofAverage]
+000000010002e228 t -[bodymetrixDriver setBxNumberofAverage:]
+000000010002e234 t -[bodymetrixDriver bxnumberofTimeOuts]
+000000010002e240 t -[bodymetrixDriver setBxnumberofTimeOuts:]
+000000010002e24c t -[bodymetrixDriver resetCounters]
+000000010002e260 t -[bodymetrixDriver bxUnaveragedSignal]
+000000010002e26d t -[bodymetrixDriver bxSignal]
+000000010002e27a t -[bodymetrixDriver setAverageSignal:]
+000000010002e29b t -[bodymetrixDriver bxDoubleClick::]
+000000010002e2ad t -[bodymetrixDriver writebxGainandRead:]
+000000010002e2d2 t -[bodymetrixDriver writebxGainandReadNoAverage:]
+000000010002e2f7 t -[bodymetrixDriver readbxMultipleSignals:::]
+000000010002e31d t -[bodymetrixDriver getdeviceSerialNumber]
+000000010002e36c t -[bodymetrixDriver setLowSignalThreshold:]
+000000010002e378 t -[bodymetrixDriver isSignalLow]
+000000010002e390 t -[bodymetrixDriver signalMax]
+000000010002e39c t -[bodymetrixDriver NumberofSignalsRead]
+000000010002e3a8 t -[bodymetrixDriver defaultgain]
+000000010002e3bb t -[bodymetrixDriver setDefaultgain:]
+000000010002e3cb t -[bodymetrixDriver deviceName]
+000000010002e3e1 t -[bodymetrixDriver setDeviceName:]
+000000010002e3f2 t -[bodymetrixDriver deviceSerialNumber]
+000000010002e408 t -[bodymetrixDriver setDeviceSerialNumber:]
+000000010002e419 t -[bodymetrixDriver deviceOffset]
+000000010002e42f t -[bodymetrixDriver setDeviceOffset:]
+000000010002e445 t -[bodymetrixDriver deviceGainOffset]
+000000010002e455 t -[bodymetrixDriver setDeviceGainOffset:]
+000000010002e465 t -[bodymetrixDriver infoStringHasBeenRead]
+000000010002e478 t -[bodymetrixDriver setInfoStringHasBeenRead:]
+000000010002e488 t -[bodymetrixDriver .cxx_destruct]
+000000010002ed19 t -[BV2DPage maximumThicknessIA:]
+00000001000321be t -[BV2DPage maximumThicknessLabelOUT]
+00000001000321cf t -[BV2DPage setMaximumThicknessLabelOUT:]
+00000001000321e0 t -[BV2DPage measuredThicknessOUT]
+00000001000321f1 t -[BV2DPage setMeasuredThicknessOUT:]
+00000001000322b6 t -[BV2DPage bodymetrixBVAlgo]
+00000001000322cc t -[BV2DPage setBodymetrixBVAlgo:]
+00000001000322dd t -[BV2DPage gainValue]
+00000001000322ed t -[BV2DPage setGainValue:]
+00000001000322fd t -[BV2DPage maximumThickness]
+000000010003230d t -[BV2DPage setMaximumThickness:]
+0000000100032366 t -[BV2DPage maximumThicknessOT]
+0000000100032377 t -[BV2DPage setMaximumThicknessOT:]
+0000000100035f16 t -[BV2DView OLDGetPeakLocation::]
+000000010003619e t -[BV2DView GetPeakLocation::]
+000000010003800c t -[BV2DView indexatMaximumThickness]
+000000010003801c t -[BV2DView setIndexatMaximumThickness:]
+000000010003802c t -[BV2DView measuredThickness]
+0000000100038042 t -[BV2DView setMeasuredThickness:]
+000000010003e2aa t -[BVTrendsPage setminandmaxthickness]
+000000010003eda5 t -[BVTrendsPage pointThicknessCPLayer]
+000000010003edb6 t -[BVTrendsPage setPointThicknessCPLayer:]
+0000000100040785 t -[BVComparePage maximumThicknessIA:]
+0000000100040ccf t -[BVComparePage beforeMeasuredThicknessOUT]
+0000000100040ce0 t -[BVComparePage setBeforeMeasuredThicknessOUT:]
+0000000100040d35 t -[BVComparePage afterMeasuredThicknessOUT]
+0000000100040d46 t -[BVComparePage setAfterMeasuredThicknessOUT:]
+0000000100040e2d t -[BVComparePage bodymetrixBVAlgo]
+0000000100040e43 t -[BVComparePage setBodymetrixBVAlgo:]
+0000000100040e54 t -[BVComparePage gainValue]
+0000000100040e64 t -[BVComparePage setGainValue:]
+0000000100040e74 t -[BVComparePage maximumThickness]
+0000000100040e84 t -[BVComparePage setMaximumThickness:]
+0000000100040efb t -[BVComparePage maximumThicknessLabelOUT]
+0000000100040f0c t -[BVComparePage setMaximumThicknessLabelOUT:]
+000000010004452e t -[BV2DViewFromFile GetPeakLocation::]
+0000000100045314 t -[BV2DViewFromFile indexatMaximumThickness]
+0000000100045324 t -[BV2DViewFromFile setIndexatMaximumThickness:]
+0000000100045334 t -[BV2DViewFromFile measuredThickness]
+000000010004534a t -[BV2DViewFromFile setMeasuredThickness:]
+0000000100048a04 t -[BV2DViewFromFileBefore GetPeakLocation::]
+00000001000497ea t -[BV2DViewFromFileBefore indexatMaximumThickness]
+00000001000497fa t -[BV2DViewFromFileBefore setIndexatMaximumThickness:]
+000000010004980a t -[BV2DViewFromFileBefore measuredThickness]
+0000000100049820 t -[BV2DViewFromFileBefore setMeasuredThickness:]
+000000010004e72b t -[BV2DView2DAfter GetPeakLocation::]
+000000010004f511 t -[BV2DView2DAfter indexatMaximumThickness]
+000000010004f521 t -[BV2DView2DAfter setIndexatMaximumThickness:]
+000000010004f531 t -[BV2DView2DAfter measuredThickness]
+000000010004f547 t -[BV2DView2DAfter setMeasuredThickness:]
+0000000100052c87 t -[BV2DView2DBefore GetPeakLocation::]
+0000000100053a6d t -[BV2DView2DBefore indexatMaximumThickness]
+0000000100053a7d t -[BV2DView2DBefore setIndexatMaximumThickness:]
+0000000100053a8d t -[BV2DView2DBefore measuredThickness]
+0000000100053aa3 t -[BV2DView2DBefore setMeasuredThickness:]
+000000010005401f t __ZL30add_image_hook_autoreleasepoolPK11mach_headerl
+00000001000540d3 t __ZL19patch_lazy_pointersPK11mach_headerP7patch_tm
+000000010005441e t __ZL18add_image_hook_ARCPK11mach_headerl
+00000001000549c2 t __ZL22add_image_hook_swiftV1PK11mach_headerl
+00000001000899c8 s _OBJC_IVAR_$_BodyViewPersonalAppDelegate.bodymetrixBMData
+00000001000899d0 s _OBJC_IVAR_$_BodyViewPersonalAppDelegate.bodymetrixDevice
+00000001000899d8 s _OBJC_IVAR_$_BodyViewPersonalAppDelegate.bodymetrixBVAlgo
+0000000100089be0 s _OBJC_IVAR_$_BodyViewPersonalAppDelegate.estimatedThickness
+0000000100089d88 s _OBJC_IVAR_$_BVthicknessMeasurement.validmeasurement
+0000000100089d90 s _OBJC_IVAR_$_BVthicknessMeasurement.fatThicknessMeasurement
+0000000100089d98 s _OBJC_IVAR_$_BVthicknessMeasurement.muscleThicknessMeasurement
+0000000100089da0 s _OBJC_IVAR_$_peakpoint.validmeasurement
+0000000100089da8 s _OBJC_IVAR_$_peakpoint.threshold
+0000000100089db0 s _OBJC_IVAR_$_peakpoint.peakthickness
+0000000100089db8 s _OBJC_IVAR_$_peakpoint.maxthickness
+0000000100089dc0 s _OBJC_IVAR_$_peakpoint.peakamplitude
+0000000100089e38 s _OBJC_IVAR_$_BVstMS.Thickness
+0000000100089e60 s _OBJC_IVAR_$_BVstDefaults.Gain
+0000000100089ee0 s _OBJC_IVAR_$_BVstDefaults.ThicknessError
+0000000100089fa0 s _OBJC_IVAR_$_BVstPoint.Gain
+000000010008a198 s _OBJC_IVAR_$_bodymetrixDriver.defaultgain
+000000010008a1a0 s _OBJC_IVAR_$_bodymetrixDriver.deviceOffset
+000000010008a1a8 s _OBJC_IVAR_$_bodymetrixDriver.infoStringHasBeenRead
+000000010008a1b0 s _OBJC_IVAR_$_bodymetrixDriver.deviceGainOffset
+000000010008a1b8 s _OBJC_IVAR_$_bodymetrixDriver.usbVendor
+000000010008a1c0 s _OBJC_IVAR_$_bodymetrixDriver.usbProduct
+000000010008a1c8 s _OBJC_IVAR_$_bodymetrixDriver.masterPort
+000000010008a1d0 s _OBJC_IVAR_$_bodymetrixDriver.kr
+000000010008a1d8 s _OBJC_IVAR_$_bodymetrixDriver.matchingDict
+000000010008a1e0 s _OBJC_IVAR_$_bodymetrixDriver.numberRef
+000000010008a1e8 s _OBJC_IVAR_$_bodymetrixDriver.runLoopSource
+000000010008a1f0 s _OBJC_IVAR_$_bodymetrixDriver.gRunLoop
+000000010008a1f8 s _OBJC_IVAR_$_bodymetrixDriver.gAddedIter
+000000010008a200 s _OBJC_IVAR_$_bodymetrixDriver.deviceSerialNumber
+000000010008a208 s _OBJC_IVAR_$_bodymetrixDriver.deviceName
+000000010008a210 s _OBJC_IVAR_$_bodymetrixDriver.connected
+000000010008a218 s _OBJC_IVAR_$_bodymetrixDriver.interfaceDict
+000000010008a220 s _OBJC_IVAR_$_bodymetrixDriver.usbDevice
+000000010008a228 s _OBJC_IVAR_$_bodymetrixDriver.plugInInterface
+000000010008a230 s _OBJC_IVAR_$_bodymetrixDriver.score
+000000010008a238 s _OBJC_IVAR_$_bodymetrixDriver.res
+000000010008a278 s _OBJC_IVAR_$_BV2DPage.maximumThickness
+000000010008a2a0 s _OBJC_IVAR_$_BV2DPage.measuredThicknessOUT
+000000010008a2b0 s _OBJC_IVAR_$_BV2DPage.bodymetrixBVAlgo
+000000010008a2b8 s _OBJC_IVAR_$_BV2DPage.maximumThicknessLabelOUT
+000000010008a2c8 s _OBJC_IVAR_$_BV2DPage.gainValue
+000000010008a348 s _OBJC_IVAR_$_BV2DPage.maximumThicknessOT
+000000010008a360 s _OBJC_IVAR_$_BV2DView.indexatMaximumThickness
+000000010008a368 s _OBJC_IVAR_$_BV2DView.measuredThickness
+000000010008a470 s _OBJC_IVAR_$_BVTrendsPage.pointThicknessCPLayer
+000000010008a4c0 s _OBJC_IVAR_$_BVComparePage.maximumThicknessLabelOUT
+000000010008a4c8 s _OBJC_IVAR_$_BVComparePage.maximumThickness
+000000010008a4f8 s _OBJC_IVAR_$_BVComparePage.beforeMeasuredThicknessOUT
+000000010008a500 s _OBJC_IVAR_$_BVComparePage.afterMeasuredThicknessOUT
+000000010008a528 s _OBJC_IVAR_$_BVComparePage.bodymetrixBVAlgo
+000000010008a530 s _OBJC_IVAR_$_BVComparePage.gainValue
+000000010008a540 s _OBJC_IVAR_$_BV2DViewFromFile.indexatMaximumThickness
+000000010008a548 s _OBJC_IVAR_$_BV2DViewFromFile.measuredThickness
+000000010008a5d0 s _OBJC_IVAR_$_BV2DViewFromFileBefore.indexatMaximumThickness
+000000010008a5d8 s _OBJC_IVAR_$_BV2DViewFromFileBefore.measuredThickness
+000000010008a688 s _OBJC_IVAR_$_BV2DView2DAfter.indexatMaximumThickness
+000000010008a690 s _OBJC_IVAR_$_BV2DView2DAfter.measuredThickness
+000000010008a718 s _OBJC_IVAR_$_BV2DView2DBefore.indexatMaximumThickness
+000000010008a720 s _OBJC_IVAR_$_BV2DView2DBefore.measuredThickness
+000000010008a840 s _OBJC_CLASS_$_BVthicknessMeasurement
+000000010008a868 s _OBJC_METACLASS_$_BVthicknessMeasurement
+000000010008a890 s _OBJC_CLASS_$_peakpoint
+000000010008a8b8 s _OBJC_METACLASS_$_peakpoint
+000000010008ab60 s _OBJC_CLASS_$_bodymetrixDriver
+000000010008ab88 s _OBJC_METACLASS_$_bodymetrixDriver
+000000010008b3f0 s _peakstart
+000000010008b580 s _peakend
+000000010008b710 s _peakMax
+000000010008ba30 s _peakiMax
+000000010008bc00 b _maximumThickness
+000000010008bc08 b _indexatMaximumThickness
+0000000100093e48 b _autogainfinished
+0000000100093e49 b _gaintouse
+0000000100093e54 b _autogaincounter
+0000000100093e70 b _fatThickness
+0000000100093ea0 b _muscleThickness
+00000001000a2fac b _indexatMaximumThickness
+00000001000a97a8 b _pointThicknessValues
+00000001000a97d0 b _minthickness
+00000001000a97d8 b _maxthickness
+00000001000ab600 b __ZZL30add_image_hook_autoreleasepoolPK11mach_headerlE7patches
+00000001000ab620 b __ZGVZL30add_image_hook_autoreleasepoolPK11mach_headerlE7patches
+00000001000ab630 b __ZZL18add_image_hook_ARCPK11mach_headerlE7patches
+00000001000ab6f0 b __ZGVZL18add_image_hook_ARCPK11mach_headerlE7patches
+00000001000ab760 b __ZZL22add_image_hook_swiftV1PK11mach_headerlE7patches
+00000001000ab810 b __ZGVZL22add_image_hook_swiftV1PK11mach_headerlE7patches
+
+--- /Applications/BodyViewPersonal.app/Contents/Resources/BodyViewPersonalImporter.mdimporter/Contents/MacOS/BodyViewPersonalImporter ---
+00000000000026ce t __ZL30add_image_hook_autoreleasepoolPK11mach_headerl
+0000000000002782 t __ZL19patch_lazy_pointersPK11mach_headerP7patch_tm
+0000000000002acd t __ZL18add_image_hook_ARCPK11mach_headerl
+0000000000003071 t __ZL22add_image_hook_swiftV1PK11mach_headerl
+0000000000006c70 b __ZZL30add_image_hook_autoreleasepoolPK11mach_headerlE7patches
+0000000000006c90 b __ZGVZL30add_image_hook_autoreleasepoolPK11mach_headerlE7patches
+0000000000006ca0 b __ZZL18add_image_hook_ARCPK11mach_headerlE7patches
+0000000000006d60 b __ZGVZL18add_image_hook_ARCPK11mach_headerlE7patches
+0000000000006dd0 b __ZZL22add_image_hook_swiftV1PK11mach_headerlE7patches
+0000000000006e80 b __ZGVZL22add_image_hook_swiftV1PK11mach_headerlE7patches
+
+=== DEMANGLED ===
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: __mh_execute_header
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _autogaincounter
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _autogainfinished
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _fatThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _gaintouse
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _indexatMaximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _maximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _maxthickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _minthickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _muscleThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_CLASS_$_bodymetrixDriver
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_CLASS_$_BVthicknessMeasurement
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_CLASS_$_peakpoint
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.connected
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.defaultgain
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.deviceGainOffset
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.deviceName
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.deviceOffset
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.deviceSerialNumber
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.gAddedIter
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.gRunLoop
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.infoStringHasBeenRead
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.interfaceDict
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.kr
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.masterPort
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.matchingDict
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.numberRef
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.plugInInterface
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.res
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.runLoopSource
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.score
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.usbDevice
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.usbProduct
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_bodymetrixDriver.usbVendor
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BodyViewPersonalAppDelegate.bodymetrixBMData
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BodyViewPersonalAppDelegate.bodymetrixBVAlgo
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BodyViewPersonalAppDelegate.bodymetrixDevice
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BodyViewPersonalAppDelegate.estimatedThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DPage.bodymetrixBVAlgo
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DPage.gainValue
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DPage.maximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DPage.maximumThicknessLabelOUT
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DPage.maximumThicknessOT
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DPage.measuredThicknessOUT
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DView.indexatMaximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DView.measuredThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DView2DAfter.indexatMaximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DView2DAfter.measuredThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DView2DBefore.indexatMaximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DView2DBefore.measuredThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DViewFromFile.indexatMaximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DViewFromFile.measuredThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DViewFromFileBefore.indexatMaximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BV2DViewFromFileBefore.measuredThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVComparePage.afterMeasuredThicknessOUT
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVComparePage.beforeMeasuredThicknessOUT
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVComparePage.bodymetrixBVAlgo
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVComparePage.gainValue
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVComparePage.maximumThickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVComparePage.maximumThicknessLabelOUT
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVstDefaults.Gain
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVstDefaults.ThicknessError
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVstMS.Thickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVstPoint.Gain
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVthicknessMeasurement.fatThicknessMeasurement
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVthicknessMeasurement.muscleThicknessMeasurement
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVthicknessMeasurement.validmeasurement
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_BVTrendsPage.pointThicknessCPLayer
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_peakpoint.maxthickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_peakpoint.peakamplitude
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_peakpoint.peakthickness
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_peakpoint.threshold
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_IVAR_$_peakpoint.validmeasurement
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_METACLASS_$_bodymetrixDriver
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_METACLASS_$_BVthicknessMeasurement
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _OBJC_METACLASS_$_peakpoint
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _peakend
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _peakiMax
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _peakMax
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _peakstart
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _pointThicknessValues
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _readMultipleSignals
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _writeGainandRead
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: _writeGainandReadNoAverage
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: .cxx_destruct]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: add_image_hook_ARC(mach_header const*, long)
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: add_image_hook_ARC(mach_header const*, long)::patches
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: add_image_hook_autoreleasepool(mach_header const*, long)
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: add_image_hook_autoreleasepool(mach_header const*, long)::patches
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: add_image_hook_swiftV1(mach_header const*, long)
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: add_image_hook_swiftV1(mach_header const*, long)::patches
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: afterMeasuredThicknessOUT]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: beforeMeasuredThicknessOUT]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bodymetrixBMData]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bodymetrixBVAlgo]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bodymetrixDevice]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bxDoubleClick::]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bxNumberofAverage]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bxnumberofTimeOuts]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bxSignal]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bxTimedOut]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: bxUnaveragedSignal]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: ChangePointThicknessValue:]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: defaultgain]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: deviceGainOffset]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: deviceName]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: deviceOffset]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: deviceSerialNumber]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: estimatedThickness]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: fatThicknessMeasurement]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: FindClosestPeak:]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: findFirstPeakinArray::::]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: FindPeaks::]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: Gain]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: gainValue]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: getdeviceSerialNumber]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: GetEstimatedThickness::::]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: GetEstimatedThickness:]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: GetLastThicknessMeasurementAtPoint:]
+/Applications/BodyViewPersonal.app/Contents/MacOS/BodyViewPersonal :: GetPeakLocation::]
+
+=== STRINGS ===
+@"bodymetrixDriver"
+afterMeasuredThicknessOUT
+beforeMeasuredThicknessOUT
+bindObject:toColumn:inStatament:
+BodyMetrix Technical Video
+BodyMetrix Training Video
+bodymetrixBMData
+bodymetrixBVAlgo
+BodyMetrixByIntelGrayYellow
+bodymetrixDevice
+bodymetrixDriver
+BVthicknessMeasurement
+ChangePointThicknessValue:
+couldn't create an IOUSBInterfaceInterface245 (%08x)
+defaultgain
+deviceGainOffset
+estimatedThickness
+fatThicknessMeasurement
+FindClosestPeak:
+findFirstPeakinArray::::
+FindPeaks::
+Gain
+GAIN
+gainValue
+GetEstimatedThickness:
+GetEstimatedThickness::::
+GetLastThicknessMeasurementAtPoint:
+GetPeakLocation::
+GetThicknessMeasurementfromAverageSignal
+GetThicknessScanValues:::
+indexatMaximumThickness
+initthicknessParms
+INSERT INTO ScanValues (scMeasureType, scClientID, scPointID, scDate, scFatThickness, scMuscleThickness) VALUES ('P'
+maximumthickness
+maximumThickness
+maximumThicknessIA:
+maximumThicknessLabelOUT
+maximumThicknessOT
+maxthickness
+measuredThickness
+measuredThicknessOUT
+muscleThicknessMeasurement
+NO BodyMetrix
+nobodymetrix
+OLDGetPeakLocation::
+peakamplitude
+peakpoint
+peakthickness
+pointThicknessCPLayer
+ptGain
+ptGain = 
+readbxMultipleSignals:::
+scFatThickness
+setAfterMeasuredThicknessOUT:
+setBeforeMeasuredThicknessOUT:
+setBodymetrixBMData:
+setBodymetrixBVAlgo:
+setBodymetrixDevice:
+setDefaultgain:
+setDeviceGainOffset:
+setEstimatedThickness:
+setFatThicknessMeasurement:
+setGain:
+setGainValue:
+setIndexatMaximumThickness:
+setMaximumThickness:
+setMaximumThicknessLabelOUT:
+setMaximumThicknessOT:
+setMaxthickness:
+setMeasuredThickness:
+setMeasuredThicknessOUT:
+setminandmaxthickness
+setMuscleThicknessMeasurement:
+setPeakamplitude:
+setPeakthickness:
+setPointThicknessCPLayer:
+setThickness:
+setThicknessError:
+T@"bodymetrixDriver",&,VbmDevice
+T@"bodymetrixDriver",&,VbodymetrixDevice
+T@"bodymetrixDriver",&,VbxDevice
+T@"BVAlgo",&,VbodymetrixBVAlgo
+T@"BVBmData",&,VbodymetrixBMData
+T@"BVstMeasUnit",&,VThickness
+T@"CPTGraphHostingView",VpointThicknessCPLayer
+T@"NSSlider",VmaximumThicknessOT
+T@"NSTextField",VafterMeasuredThicknessOUT
+T@"NSTextField",VbeforeMeasuredThicknessOUT
+T@"NSTextField",VmaximumThicknessLabelOUT
+T@"NSTextFieldCell",VmeasuredThicknessOUT
+TC,Vdefaultgain
+Td,VestimatedThickness
+Td,VfatThicknessMeasurement
+Td,Vmaxthickness
+Td,VmeasuredThickness
+Td,VmuscleThicknessMeasurement
+Td,Vpeakamplitude
+Td,Vpeakthickness
+Td,VThicknessError
+thickness
+Thickness
+Thickness [mm]
+ThicknessError
+thicknessmm
+Ti,VdeviceGainOffset
+Ti,VGain
+Ti,VgainValue
+Ti,VindexatMaximumThickness
+Ti,VmaximumThickness
+writebxGainandRead:
+writebxGainandReadNoAverage:
+
+=== DISASM (readbx / thickness) ===
+──── _fatThickness ────
+_fatThickness
+──── _indexatMaximumThickness ────
+_indexatMaximumThickness
+──── _maximumThickness ────
+_maximumThickness
+──── _maxthickness ────
+_maxthickness
+──── _minthickness ────
+_minthickness
+──── _muscleThickness ────
+_muscleThickness
+──── _OBJC_CLASS_$_BVthicknessMeasurement ────
+_OBJC_CLASS_$_BVthicknessMeasurement
+──── _OBJC_IVAR_$_BodyViewPersonalAppDelegate.estimatedThickness ────
+_OBJC_IVAR_$_BodyViewPersonalAppDelegate.estimatedThickness
+──── _OBJC_IVAR_$_BV2DPage.maximumThickness ────
+_OBJC_IVAR_$_BV2DPage.maximumThickness
+──── _OBJC_IVAR_$_BV2DPage.maximumThicknessLabelOUT ────
+_OBJC_IVAR_$_BV2DPage.maximumThicknessLabelOUT
+──── _OBJC_IVAR_$_BV2DPage.maximumThicknessOT ────
+_OBJC_IVAR_$_BV2DPage.maximumThicknessOT
+──── _OBJC_IVAR_$_BV2DPage.measuredThicknessOUT ────
+_OBJC_IVAR_$_BV2DPage.measuredThicknessOUT
+──── _OBJC_IVAR_$_BV2DView.indexatMaximumThickness ────
+_OBJC_IVAR_$_BV2DView.indexatMaximumThickness
+──── _OBJC_IVAR_$_BV2DView.measuredThickness ────
+_OBJC_IVAR_$_BV2DView.measuredThickness
+──── _OBJC_IVAR_$_BV2DView2DAfter.indexatMaximumThickness ────
+_OBJC_IVAR_$_BV2DView2DAfter.indexatMaximumThickness
+──── _OBJC_IVAR_$_BV2DView2DAfter.measuredThickness ────
+_OBJC_IVAR_$_BV2DView2DAfter.measuredThickness
+──── _OBJC_IVAR_$_BV2DView2DBefore.indexatMaximumThickness ────
+_OBJC_IVAR_$_BV2DView2DBefore.indexatMaximumThickness
+──── _OBJC_IVAR_$_BV2DView2DBefore.measuredThickness ────
+_OBJC_IVAR_$_BV2DView2DBefore.measuredThickness
+──── _OBJC_IVAR_$_BV2DViewFromFile.indexatMaximumThickness ────
+_OBJC_IVAR_$_BV2DViewFromFile.indexatMaximumThickness
+──── _OBJC_IVAR_$_BV2DViewFromFile.measuredThickness ────
+_OBJC_IVAR_$_BV2DViewFromFile.measuredThickness
+──── _OBJC_IVAR_$_BV2DViewFromFileBefore.indexatMaximumThickness ────
+_OBJC_IVAR_$_BV2DViewFromFileBefore.indexatMaximumThickness
+──── _OBJC_IVAR_$_BV2DViewFromFileBefore.measuredThickness ────
+_OBJC_IVAR_$_BV2DViewFromFileBefore.measuredThickness
+──── _OBJC_IVAR_$_BVComparePage.afterMeasuredThicknessOUT ────
+_OBJC_IVAR_$_BVComparePage.afterMeasuredThicknessOUT
+──── _OBJC_IVAR_$_BVComparePage.beforeMeasuredThicknessOUT ────
+_OBJC_IVAR_$_BVComparePage.beforeMeasuredThicknessOUT
+──── _OBJC_IVAR_$_BVComparePage.maximumThickness ────
+_OBJC_IVAR_$_BVComparePage.maximumThickness
+──── _OBJC_IVAR_$_BVComparePage.maximumThicknessLabelOUT ────
+_OBJC_IVAR_$_BVComparePage.maximumThicknessLabelOUT
+──── _OBJC_IVAR_$_BVstDefaults.ThicknessError ────
+_OBJC_IVAR_$_BVstDefaults.ThicknessError
+──── _OBJC_IVAR_$_BVstMS.Thickness ────
+_OBJC_IVAR_$_BVstMS.Thickness
+──── _OBJC_IVAR_$_BVthicknessMeasurement.fatThicknessMeasurement ────
+_OBJC_IVAR_$_BVthicknessMeasurement.fatThicknessMeasurement
+──── _OBJC_IVAR_$_BVthicknessMeasurement.muscleThicknessMeasurement ────
+_OBJC_IVAR_$_BVthicknessMeasurement.muscleThicknessMeasurement
+──── _OBJC_IVAR_$_BVthicknessMeasurement.validmeasurement ────
+_OBJC_IVAR_$_BVthicknessMeasurement.validmeasurement
+──── _OBJC_IVAR_$_BVTrendsPage.pointThicknessCPLayer ────
+_OBJC_IVAR_$_BVTrendsPage.pointThicknessCPLayer
+──── _OBJC_IVAR_$_peakpoint.maxthickness ────
+_OBJC_IVAR_$_peakpoint.maxthickness
+──── _OBJC_IVAR_$_peakpoint.peakthickness ────
+_OBJC_IVAR_$_peakpoint.peakthickness
+──── _OBJC_METACLASS_$_BVthicknessMeasurement ────
+_OBJC_METACLASS_$_BVthicknessMeasurement
+──── _pointThicknessValues ────
+_pointThicknessValues
+──── _readMultipleSignals ────
+_readMultipleSignals
+──── afterMeasuredThicknessOUT] ────
+afterMeasuredThicknessOUT]
+──── beforeMeasuredThicknessOUT] ────
+beforeMeasuredThicknessOUT]
+──── ChangePointThicknessValue:] ────
+ChangePointThicknessValue:]
+──── estimatedThickness] ────
+estimatedThickness]
+──── fatThicknessMeasurement] ────
+fatThicknessMeasurement]
+──── GetEstimatedThickness::::] ────
+GetEstimatedThickness::::]
+──── GetEstimatedThickness:] ────
+GetEstimatedThickness:]
+──── GetLastThicknessMeasurementAtPoint:] ────
+GetLastThicknessMeasurementAtPoint:]
+──── GetThicknessMeasurementfromAverageSignal] ────
+GetThicknessMeasurementfromAverageSignal]
+──── GetThicknessScanValues:::] ────
+GetThicknessScanValues:::]
+──── indexatMaximumThickness] ────
+indexatMaximumThickness]
+──── init] ────
+init]
+──── initthicknessParms] ────
+initthicknessParms]
+──── maximumThickness] ────
+maximumThickness]
+──── maximumThicknessIA:] ────
+maximumThicknessIA:]
+──── maximumThicknessLabelOUT] ────
+maximumThicknessLabelOUT]
+──── maximumThicknessOT] ────
+maximumThicknessOT]
+──── maxthickness] ────
+maxthickness]
+──── measuredThickness] ────
+measuredThickness]
+──── measuredThicknessOUT] ────
+measuredThicknessOUT]
+──── muscleThicknessMeasurement] ────
+muscleThicknessMeasurement]
+──── peakthickness] ────
+peakthickness]
+──── pointThicknessCPLayer] ────
+pointThicknessCPLayer]
+──── readbxMultipleSignals:::] ────
+readbxMultipleSignals:::]
+──── setAfterMeasuredThicknessOUT:] ────
+setAfterMeasuredThicknessOUT:]
+──── setBeforeMeasuredThicknessOUT:] ────
+setBeforeMeasuredThicknessOUT:]
+──── setEstimatedThickness:] ────
+setEstimatedThickness:]
+──── setFatThicknessMeasurement:] ────
+setFatThicknessMeasurement:]
+──── setIndexatMaximumThickness:] ────
+setIndexatMaximumThickness:]
+──── setMaximumThickness:] ────
+setMaximumThickness:]
+──── setMaximumThicknessLabelOUT:] ────
+setMaximumThicknessLabelOUT:]
+──── setMaximumThicknessOT:] ────
+setMaximumThicknessOT:]
+──── setMaxthickness:] ────
+setMaxthickness:]
+──── setMeasuredThickness:] ────
+setMeasuredThickness:]
+──── setMeasuredThicknessOUT:] ────
+setMeasuredThicknessOUT:]
+──── setminandmaxthickness] ────
+setminandmaxthickness]
+──── setMuscleThicknessMeasurement:] ────
+setMuscleThicknessMeasurement:]
+──── setPeakthickness:] ────
+setPeakthickness:]
+──── setPointThicknessCPLayer:] ────
+setPointThicknessCPLayer:]
+──── setThickness:] ────
+setThickness:]
+──── setThicknessError:] ────
+setThicknessError:]
+──── setValidmeasurement:] ────
+setValidmeasurement:]
+──── Thickness] ────
+Thickness]
+──── ThicknessError] ────
+ThicknessError]
+──── validmeasurement] ────
+validmeasurement]

@@ -1,0 +1,26 @@
+Burn & Build LBA — Probe Report
+Generated: Tue Sep  8 16:25:44 PDT 2026
+Setup: USB-C hub (normal)
+
+─── STATUS ───
+Connected: True
+Mode:      scanoprobe
+VID:PID:   0x04D8:0xFBB7
+Message:   Probe ready — gel, place on skin, press SEND on wand
+
+─── DEVICE INFO ───
+
+─── SEND TEST (20 seconds) ───
+When you see HOLD SEND below: gel → skin → press and hold SEND on wand.
+
+══════════════════════════════════════════════════
+  BODYVIEW BX PROTOCOL — gel, skin, HOLD SEND
+  Uses bytes found in binary: 0xA0 0x01
+══════════════════════════════════════════════════
+Init: connected=True info=0 bytes
+HOLD SEND on wand for 20s…
+
+Received 0 bytes
+No bulk data.
+
+─── END ───

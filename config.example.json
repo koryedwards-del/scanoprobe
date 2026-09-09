@@ -1,0 +1,11 @@
+{
+  "site1_label": "Thigh",
+  "site2_label": "Waist",
+  "formula_type": "edwards",
+  "default_sex": "female",
+  "fat_percent_formula": "edwards",
+  "measurement_mode": "scanoprobe",
+  "sound_speed_m_s": 1540,
+  "usb_vendor_id": "0x04D8",
+  "usb_product_id": "0xFBB7"
+}

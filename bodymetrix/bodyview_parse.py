@@ -27,7 +27,10 @@ ENVELOPE_WIDTH = 1024
 
 def is_bodyview_bx_packet(payload: bytes) -> bool:
     """True for BX2000 BodyView envelope packets (header 00 00 00 XX + waveform)."""
-    return len(payload) >= 8 and payload[:3] == b"\x00\x00\x00" and payload[3] != 0
+    if len(payload) < 32 or payload[:3] != b"\x00\x00\x00":
+        return False
+    env = payload[ENVELOPE_OFFSET : ENVELOPE_OFFSET + 32]
+    return len(env) >= 16 and float(max(env)) > 1.0
 
 
 def header_byte3_mm(payload: bytes) -> float | None:

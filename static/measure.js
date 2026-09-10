@@ -33,11 +33,20 @@ function ensureLedBar() {
   }
 }
 
+const FULL_BAR_GAIN_INDEX = 20;
+
+function fillCountFromGain(gainIndex) {
+  if (gainIndex >= FULL_BAR_GAIN_INDEX) return 50;
+  return Math.min(50, Math.max(0, Math.round((gainIndex / FULL_BAR_GAIN_INDEX) * 50)));
+}
+
 function renderLeds(state, gainChanged) {
   const bar = $("#led-bar");
   if (!bar) return;
   const mm = state.mm ?? state.live_mm ?? state.locked_mm;
   const ledOn = state.led_on;
+  const gainIdx = state.gain_index ?? 0;
+  const gainFill = state.has_echo ? fillCountFromGain(gainIdx) : 0;
   const center = mm != null ? Math.round(mm) : 0;
   const b1 = center - 1;
   const b2 = center;
@@ -46,7 +55,8 @@ function renderLeds(state, gainChanged) {
   bar.querySelectorAll(".led").forEach((el, i) => {
     const n = i + 1;
     el.className = "led";
-    const on = Array.isArray(ledOn) && ledOn.length >= 50 ? !!ledOn[i] : false;
+    let on = Array.isArray(ledOn) && ledOn.length >= 50 ? !!ledOn[i] : false;
+    if (!on && gainFill > 0) on = n <= gainFill;
     if (on) el.classList.add("on");
     if (center >= 2 && (n === b1 || n === b2 || n === b3)) {
       if (n === b2) el.classList.add("bracket-core");
@@ -101,7 +111,7 @@ function startPoll() {
     } catch {
       /* waiting for SEND */
     }
-  }, 450);
+  }, 700);
 }
 
 async function nudgeGain(delta) {

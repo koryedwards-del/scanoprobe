@@ -84,13 +84,31 @@ class ScaleReading:
     method: str
 
 
-def _bin_for_led(led: int) -> int:
-    return int(round(led / MM_PER_BIN))
+def _depth_zero_bin(env: np.ndarray) -> int:
+    """Skip USB/couplant dead zone before the first tissue echo."""
+    if len(env) < 64:
+        return 0
+    baseline = float(np.median(env[:32]))
+    span = max(1.0, float(np.max(env)) - baseline)
+    trigger = baseline + 0.08 * span
+    run = 0
+    for i in range(5, min(len(env) - 4, 400)):
+        if env[i] > trigger:
+            run += 1
+            if run >= 3:
+                return max(0, i - 2)
+        else:
+            run = 0
+    return 0
 
 
-def _envelope_at_led(env: np.ndarray, led: int) -> float:
+def _bin_for_led(led: int, depth_zero: int = 0) -> int:
+    return depth_zero + int(round(led / MM_PER_BIN))
+
+
+def _envelope_at_led(env: np.ndarray, led: int, depth_zero: int = 0) -> float:
     """Peak envelope near this depth LED (1–50 mm axis)."""
-    bin_idx = _bin_for_led(led)
+    bin_idx = _bin_for_led(led, depth_zero)
     lo = max(0, bin_idx - 2)
     hi = min(len(env), bin_idx + 3)
     if lo >= hi:
@@ -112,10 +130,10 @@ def _envelope_threshold_mask(
     slider: int = 0,
 ) -> list[bool]:
     """
-    1982 gain on cached echo: slider opens sensitivity shallow → deep.
+    1982 gain on cached echo: slider lowers threshold → more LEDs light.
 
-    Software threshold on the envelope (BX packet); wand gain byte is separate.
-    Bar fills contiguously from LED 1; slide left peels from the deep end.
+    Each LED lights independently where the envelope exceeds threshold.
+    Slide left (less gain) raises threshold — deep LEDs drop off first.
     """
     if slider <= 0 or len(env) < 32:
         return [False] * LED_COUNT
@@ -123,24 +141,21 @@ def _envelope_threshold_mask(
         return [False] * LED_COUNT
 
     dial = _dial_fraction(slider)
-    if dial >= 1.0:
-        return [True] * LED_COUNT
+    depth_zero = _depth_zero_bin(env)
+    tail = env[depth_zero : min(len(env), depth_zero + 600)]
+    if len(tail) < 16:
+        return [False] * LED_COUNT
 
-    baseline = float(np.median(env[:16]))
-    peak = float(np.max(env))
+    baseline = float(np.median(tail[:16]))
+    peak = float(np.max(tail))
     span = max(1.0, peak - baseline)
     floor = baseline + 0.05 * span
-    fill_to = max(0, int(round(dial * LED_COUNT)))
     threshold = peak - span * dial * 0.98
 
-    rightmost = 0
-    for led in range(1, fill_to + 1):
-        if _envelope_at_led(env, led) > max(floor, threshold):
-            rightmost = led
-
     on = [False] * LED_COUNT
-    for led in range(1, rightmost + 1):
-        on[led - 1] = True
+    for led in range(1, LED_COUNT + 1):
+        if _envelope_at_led(env, led, depth_zero) > max(floor, threshold):
+            on[led - 1] = True
     return on
 
 

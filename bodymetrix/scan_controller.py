@@ -144,16 +144,20 @@ class ScanController:
         except Exception:
             self._note_send_miss()
             return False
+        scanning = self._state.slider > 0
         if not self._is_confident_echo(payload):
-            self._note_send_miss()
+            if scanning or self._send_armed:
+                self._note_send_miss()
             return False
 
-        new_send = self._site_engaged and self._send_armed
-        if new_send:
+        if self._send_armed and self._site_engaged:
             self._reset_for_new_send()
+            scanning = False
 
-        self._miss_streak = 0
-        self._send_live = True
+        if scanning:
+            self._miss_streak = 0
+            self._send_live = True
+
         return self._ingest_capture(payload, gain_byte)
 
     def _ingest_capture(self, payload: bytes, gain_byte: int) -> bool:

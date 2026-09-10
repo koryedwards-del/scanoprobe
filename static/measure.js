@@ -50,8 +50,7 @@ function renderLeds(state, gainChanged) {
   bar.querySelectorAll(".led").forEach((el, i) => {
     const n = i + 1;
     el.className = "led";
-    let on = Array.isArray(ledOn) && ledOn.length >= 50 ? !!ledOn[i] : false;
-    if (!on && gainFill > 0) on = n <= gainFill;
+    const on = Array.isArray(ledOn) && ledOn.length >= 50 ? !!ledOn[i] : false;
     if (on) el.classList.add("on");
     if (center >= 2 && (n === b1 || n === b2 || n === b3)) {
       if (n === b2) el.classList.add("bracket-core");

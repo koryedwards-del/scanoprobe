@@ -13,7 +13,7 @@ from bodymetrix.scan_scale import (
     FULL_BAR_GAIN_INDEX,
     GAIN_STEPS,
     ScanScaleState,
-    leds_for_echo,
+    leds_for_gain,
     reading_from_led_on,
     reading_hint,
     scale_reading_from_payload,
@@ -41,17 +41,22 @@ class ScanController:
         out["has_echo"] = self._last_env is not None
         return out
 
-    def _apply_cached_leds(self) -> None:
-        """Instant LED update from last echo — gain changes without waiting on USB."""
-        if self._last_env is None:
+    def _apply_gain_leds(self) -> None:
+        """Instant LED update — + / − gain sets lit count (no USB wait)."""
+        if self._state.gain_index <= 0:
+            self._state.led_on = EMPTY_LED_ON
+            self._state.bracket = False
+            self._state.live_mm = None
+            self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
             return
-        self._state.led_on = leds_for_echo(
-            self._last_env,
+        self._state.led_on = leds_for_gain(self._state.gain_index)
+        reading = reading_from_led_on(
+            self._state.led_on,
             self._state.gain,
             self._state.gain_index,
             self._state.peak_gain_index,
+            self._last_env,
         )
-        reading = reading_from_led_on(self._state.led_on, self._state.gain)
         self._state.bracket = reading.bracket
         self._state.live_mm = reading.mm if reading.bracket else None
         self._state.message = reading_hint(reading)
@@ -108,20 +113,27 @@ class ScanController:
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
         self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
-        self._state.peak_gain_index = max(
-            self._state.peak_gain_index, self._state.gain_index
-        )
+        if self._state.gain_index <= 0:
+            self._state.peak_gain_index = 0
+            self._state.led_on = EMPTY_LED_ON
+            self._state.bracket = False
+            self._state.live_mm = None
+            self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
+        else:
+            self._state.peak_gain_index = max(
+                self._state.peak_gain_index, self._state.gain_index
+            )
         probe = self._probe
         probe.ensure_session()
         if not probe._pipes_configured:
             probe.bodyview_init()
         probe.write_gain(self._state.gain)
-        if self._last_env is not None:
-            self._apply_cached_leds()
-        elif self._state.gain_index > 0:
-            self._state.message = (
-                f"Gain {self._state.gain_index} — hold SEND on gel for LEDs to fill."
-            )
+        if self._state.gain_index > 0:
+            self._apply_gain_leds()
+            if self._last_env is None:
+                self._state.message = (
+                    f"Gain {self._state.gain_index} — hold SEND on gel for LEDs to fill."
+                )
         return self.state()
 
     def toggle_hold(self) -> dict[str, Any]:
@@ -161,24 +173,16 @@ class ScanController:
         if len(capture.payload) < 8 or is_placeholder_payload(capture.payload[:128]):
             capture = probe.write_gain_and_read(gain, read_ms=400)
 
-        if not self._ingest_capture(capture.payload, gain):
-            if self._last_env is not None:
-                self._apply_cached_leds()
+        if self._state.gain_index <= 0:
+            self._state.led_on = EMPTY_LED_ON
+            self._state.bracket = False
+            self._state.live_mm = None
+            self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
+        elif not self._ingest_capture(capture.payload, gain):
+            self._apply_gain_leds()
+            if self._last_env is None:
                 self._state.message = (
-                    f"Gain {self._state.gain_index} — hold SEND; "
-                    f"{'bar full' if self._state.gain_index >= FULL_BAR_GAIN_INDEX else 'tuning'}."
+                    f"Gain {self._state.gain_index} — hold SEND on gel, then LEDs fill."
                 )
-            else:
-                self._state.led_on = EMPTY_LED_ON
-                self._state.bracket = False
-                self._state.live_mm = None
-                if self._state.gain_index > 0:
-                    self._state.message = (
-                        f"Gain {self._state.gain_index} — hold SEND on gel, then LEDs fill."
-                    )
-                else:
-                    self._state.message = (
-                        "Hold SEND on gel, then press + — no LEDs without echo + gain."
-                    )
 
         return self.state()

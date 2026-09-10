@@ -40,6 +40,16 @@ class ScanController:
         out["has_echo"] = self._last_env is not None
         return out
 
+    def _probe_usb_ready(self) -> bool:
+        """Best-effort USB — gain must still update if the wand is unplugged."""
+        try:
+            self._probe.ensure_session()
+            if not self._probe._pipes_configured:
+                self._probe.bodyview_init()
+            return True
+        except Exception:
+            return False
+
     def _apply_reading(self, reading) -> None:
         self._state.led_on = reading.led_on
         self._state.bracket = reading.bracket
@@ -47,7 +57,7 @@ class ScanController:
         self._state.message = reading_hint(reading)
 
     def _apply_gain_leds(self) -> None:
-        """Re-threshold cached echo at new gain — LEDs appear/vanish with +/−."""
+        """Re-threshold cached echo at new gain when a fresh read is not available."""
         if self._state.gain_index <= 0:
             self._state.led_on = EMPTY_LED_ON
             self._state.bracket = False
@@ -68,6 +78,20 @@ class ScanController:
             reading_from_led_on(led_on, self._state.gain, self._state.gain_index)
         )
 
+    def _read_at_gain(self, quick: bool = False) -> bool:
+        """Read wand echo at the current gain (packet shape depends on gain byte)."""
+        gain = self._state.gain
+        try:
+            self._probe.write_gain(gain)
+            hold_s = 0.28 if quick else 0.45
+            capture = self._probe._bodyview_button_read(hold_s=hold_s)
+            if len(capture.payload) < 8 or is_placeholder_payload(capture.payload[:128]):
+                read_ms = 300 if quick else 400
+                capture = self._probe.write_gain_and_read(gain, read_ms=read_ms)
+            return self._ingest_capture(capture.payload, gain)
+        except Exception:
+            return False
+
     def _ingest_capture(self, payload: bytes, gain: int) -> bool:
         """Decode echo → cache envelope + LED bar. Returns True when echo accepted."""
         reading = scale_reading_from_payload(
@@ -85,7 +109,7 @@ class ScanController:
         return True
 
     def begin(self, site: int) -> dict[str, Any]:
-        self._last_env: np.ndarray | None = None
+        self._last_env = None
         self._state = ScanScaleState(
             active=True,
             site=site,
@@ -93,11 +117,11 @@ class ScanController:
             led_on=EMPTY_LED_ON,
             message="Gel + hold SEND on BX wand. No LEDs without gain — press +.",
         )
-        self._probe.ensure_session()
+        self._probe_usb_ready()
         return self.state()
 
     def end(self) -> dict[str, Any]:
-        self._last_env: np.ndarray | None = None
+        self._last_env = None
         self._state = ScanScaleState()
         return self.state()
 
@@ -110,28 +134,46 @@ class ScanController:
         return self.set_gain_index(idx)
 
     def set_gain_index(self, index: int) -> dict[str, Any]:
-        """Fast gain step — write to wand, update LEDs from cached echo (no USB wait)."""
+        """Write gain to wand, read echo at that gain, update LEDs."""
         if not self._state.active:
             raise BodyMetrixError("Scan not active.")
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
+
         self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
         if self._state.gain_index <= 0:
             self._state.led_on = EMPTY_LED_ON
             self._state.bracket = False
             self._state.live_mm = None
             self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
-        probe = self._probe
-        probe.ensure_session()
-        if not probe._pipes_configured:
-            probe.bodyview_init()
-        probe.write_gain(self._state.gain)
-        if self._state.gain_index > 0:
+            if self._probe_usb_ready():
+                try:
+                    self._probe.write_gain(0)
+                except Exception:
+                    pass
+            return self.state()
+
+        usb_ok = self._probe_usb_ready()
+        if usb_ok:
+            try:
+                self._probe.write_gain(self._state.gain)
+            except Exception:
+                usb_ok = False
+
+        if usb_ok and self._read_at_gain(quick=True):
+            pass
+        else:
             self._apply_gain_leds()
             if self._last_env is None:
                 self._state.message = (
-                    f"Gain {self._state.gain_index} — hold SEND on gel for LEDs."
+                    f"GAIN {self._state.gain_index} — hold SEND on gel, press + again."
                 )
+            else:
+                self._state.message = (
+                    f"GAIN {self._state.gain_index} — "
+                    f"{sum(self._state.led_on)} LEDs (hold SEND for fresh read)."
+                )
+
         return self.state()
 
     def toggle_hold(self) -> dict[str, Any]:
@@ -159,27 +201,22 @@ class ScanController:
         if self._state.locked:
             return self.state()
 
-        probe = self._probe
-        probe.ensure_session()
-        if not probe._pipes_configured:
-            probe.bodyview_init()
-
-        gain = self._state.gain
-        probe.write_gain(gain)
-        capture = probe._bodyview_button_read(hold_s=0.45)
-        if len(capture.payload) < 8 or is_placeholder_payload(capture.payload[:128]):
-            capture = probe.write_gain_and_read(gain, read_ms=400)
-
         if self._state.gain_index <= 0:
             self._state.led_on = EMPTY_LED_ON
             self._state.bracket = False
             self._state.live_mm = None
             self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
-        elif not self._ingest_capture(capture.payload, gain):
+            return self.state()
+
+        if not self._probe_usb_ready():
+            self._apply_gain_leds()
+            return self.state()
+
+        if not self._read_at_gain(quick=False):
             self._apply_gain_leds()
             if self._last_env is None:
                 self._state.message = (
-                    f"Gain {self._state.gain_index} — hold SEND on gel for LEDs."
+                    f"GAIN {self._state.gain_index} — hold SEND on gel for LEDs."
                 )
 
         return self.state()

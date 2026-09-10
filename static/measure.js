@@ -3,6 +3,7 @@
 let pollTimer = null;
 let lastGainIndex = 0;
 let gainRepeatTimer = null;
+let gainBusy = false;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -109,10 +110,21 @@ function startPoll() {
 }
 
 async function nudgeGain(delta) {
+  if (gainBusy) return;
+  gainBusy = true;
   const prev = lastGainIndex;
-  const state = await api("/api/scan/gain", { delta });
-  const gainChanged = state.gain_index !== prev;
-  render(state, gainChanged);
+  const nextIdx = Math.max(0, Math.min(23, prev + delta));
+  $("#gain-label").textContent = `GAIN ${nextIdx}`;
+  try {
+    const state = await api("/api/scan/gain", { delta });
+    render(state, state.gain_index !== prev);
+  } catch (err) {
+    const status = $("#status-message");
+    if (status) status.textContent = err.message || "Gain failed";
+    $("#gain-label").textContent = `GAIN ${prev}`;
+  } finally {
+    gainBusy = false;
+  }
 }
 
 function stopGainRepeat() {
@@ -139,22 +151,26 @@ function startGainRepeat(delta) {
 
 function bindGainButton(btn, delta) {
   if (!btn) return;
-  const onStart = (e) => {
+  let holding = false;
+
+  const onDown = (e) => {
     e.preventDefault();
-    if (btn.disabled) return;
+    if (btn.disabled || holding) return;
+    holding = true;
     startGainRepeat(delta);
   };
-  const onEnd = () => {
+  const onUp = () => {
+    if (!holding) return;
+    holding = false;
     stopGainRepeat();
     if (!$("#new-btn")?.classList.contains("hidden")) return;
     startPoll();
   };
-  btn.addEventListener("mousedown", onStart);
-  btn.addEventListener("mouseup", onEnd);
-  btn.addEventListener("mouseleave", onEnd);
-  btn.addEventListener("touchstart", onStart, { passive: false });
-  btn.addEventListener("touchend", onEnd);
-  btn.addEventListener("touchcancel", onEnd);
+
+  btn.addEventListener("pointerdown", onDown);
+  btn.addEventListener("pointerup", onUp);
+  btn.addEventListener("pointerleave", onUp);
+  btn.addEventListener("pointercancel", onUp);
 }
 
 async function refreshProbe() {

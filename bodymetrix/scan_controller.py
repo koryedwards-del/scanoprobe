@@ -35,7 +35,7 @@ class ScanController:
             active=True,
             site=site,
             gain_index=DEFAULT_GAIN_INDEX,
-            message="Gain 0 — hold SEND, crank + gain, dial back, HOLD to lock.",
+            message="+ until 50 LEDs fill → − to 3 consecutive (skip 1–3 skin) → HOLD.",
         )
         self._probe.ensure_session()
         return self._state.to_dict()

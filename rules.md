@@ -68,20 +68,32 @@ Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired)
 
 **On SEND:** wand sends ultrasound data to the Mac over USB. Communication works; **interpretation in software** is what we are fixing.
 
+### LED scale workflow (locked — Kory, years of use)
+
+**Assume:** gel on skin, **SEND held**.
+
+1. **Gain +** until the **0–50 LED bar fills** (all lights on).
+2. **Gain −** until only **three consecutive LEDs** remain in the fat zone.
+3. **Ignore LEDs 1, 2, 3** — those are **skin depth**, not the fat reading.
+4. Example bracket: **14, 15, 16** — **15 is the mm reading** (center LED solid).
+5. Fine-tune gain: **14 and 16 bounce**, **15 stays solid** — that is correct.
+6. **HOLD** locks the mm. Put down wand.
+
+Gain changes **which echoes are visible** on the bar. It does not change the mm formula — you tune until the fascia sits in the three-LED bracket.
+
 ### Data flow (locked)
 
 ```
-SEND held
+SEND held + gel
   → USB bulk packet (header 00 00 00 XX + envelope waveform)
-  → BVAlgo peak pick on bytes 4+ (not byte 3 alone)
-  → mm 0–50 on LED bar + LCD
-  → gain +/− tunes which peak fires
-  → HOLD locks mm
+  → decode peak depth → mm on 0–50 LED bar + LCD
+  → gain + fills bar, gain − brackets to 3 LEDs (ignore 1–3 skin)
+  → HOLD locks center LED mm (e.g. 15 from 14–15–16)
 ```
 
 **Do not** use header byte 3 as mm — it is not the thickness (e.g. `04` → 4.0 mm is wrong).
 
-**Fat mm (locked):** assume **3 mm skin**, find **fat/muscle fascia** peak on envelope (bytes 4+, 0.1 mm/bin), **fat = fascia depth − 3 mm**. Example: fascia at 20 mm → **17 mm fat**.
+**Fat mm (decode):** assume **3 mm skin**, find **fat/muscle fascia** peak on envelope (bytes 4+, 0.1 mm/bin), **fat = fascia depth − 3 mm**. Gain must be high enough for the fascia echo to appear before bracketing.
 
 ---
 

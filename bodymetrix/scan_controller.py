@@ -12,8 +12,6 @@ from bodymetrix.scan_scale import (
     EMPTY_LED_ON,
     GAIN_STEPS,
     ScanScaleState,
-    leds_for_echo,
-    reading_from_led_on,
     reading_hint,
     scale_reading_from_payload,
 )
@@ -56,41 +54,36 @@ class ScanController:
         self._state.live_mm = reading.mm
         self._state.message = reading_hint(reading)
 
-    def _apply_gain_leds(self) -> None:
-        """Re-threshold cached echo at new gain when a fresh read is not available."""
-        if self._state.gain_index <= 0:
-            self._state.led_on = EMPTY_LED_ON
-            self._state.bracket = False
-            self._state.live_mm = None
-            self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
-            return
-        if self._last_env is None:
-            self._state.led_on = EMPTY_LED_ON
-            self._state.bracket = False
-            self._state.live_mm = None
-            return
-        led_on = leds_for_echo(
-            self._last_env,
-            self._state.gain,
-            self._state.gain_index,
-        )
-        self._apply_reading(
-            reading_from_led_on(led_on, self._state.gain, self._state.gain_index)
-        )
+    def _discard_cached_echo(self) -> None:
+        """Drop last site — never show a previous location after the wand moves."""
+        self._last_env = None
+
+    def _clear_live(self, message: str) -> None:
+        self._state.led_on = EMPTY_LED_ON
+        self._state.bracket = False
+        self._state.live_mm = None
+        self._state.message = message
+
+    def _capture_at_gain(self, quick: bool = False) -> bytes:
+        gain = self._state.gain
+        self._probe.write_gain(gain)
+        hold_s = 0.28 if quick else 0.45
+        capture = self._probe._bodyview_button_read(hold_s=hold_s)
+        if len(capture.payload) < 8 or is_placeholder_payload(capture.payload[:128]):
+            read_ms = 300 if quick else 400
+            capture = self._probe.write_gain_and_read(gain, read_ms=read_ms)
+        return capture.payload
 
     def _read_at_gain(self, quick: bool = False) -> bool:
         """Read wand echo at the current gain (packet shape depends on gain byte)."""
         gain = self._state.gain
         try:
-            self._probe.write_gain(gain)
-            hold_s = 0.28 if quick else 0.45
-            capture = self._probe._bodyview_button_read(hold_s=hold_s)
-            if len(capture.payload) < 8 or is_placeholder_payload(capture.payload[:128]):
-                read_ms = 300 if quick else 400
-                capture = self._probe.write_gain_and_read(gain, read_ms=read_ms)
-            return self._ingest_capture(capture.payload, gain)
+            payload = self._capture_at_gain(quick=quick)
         except Exception:
             return False
+        if len(payload) < 8 or is_placeholder_payload(payload[:128]):
+            return False
+        return self._ingest_capture(payload, gain)
 
     def _ingest_capture(self, payload: bytes, gain: int) -> bool:
         """Decode echo → cache envelope + LED bar. Returns True when echo accepted."""
@@ -160,19 +153,11 @@ class ScanController:
             except Exception:
                 usb_ok = False
 
-        if usb_ok and self._read_at_gain(quick=True):
-            pass
-        else:
-            self._apply_gain_leds()
-            if self._last_env is None:
-                self._state.message = (
-                    f"GAIN {self._state.gain_index} — hold SEND on gel, press + again."
-                )
-            else:
-                self._state.message = (
-                    f"GAIN {self._state.gain_index} — "
-                    f"{sum(self._state.led_on)} LEDs (hold SEND for fresh read)."
-                )
+        if not usb_ok or not self._read_at_gain(quick=True):
+            self._discard_cached_echo()
+            self._clear_live(
+                f"GAIN {self._state.gain_index} — hold SEND on gel at new site."
+            )
 
         return self.state()
 
@@ -191,7 +176,7 @@ class ScanController:
             self._state.locked = True
             self._state.locked_mm = self._state.live_mm
             self._state.message = (
-                f"LOCKED {self._state.locked_mm:g} mm — put down wand, then save."
+                f"LOCKED {self._state.locked_mm:g} mm — release HOLD for a new site."
             )
         return self.state()
 
@@ -209,14 +194,16 @@ class ScanController:
             return self.state()
 
         if not self._probe_usb_ready():
-            self._apply_gain_leds()
+            self._discard_cached_echo()
+            self._clear_live(
+                f"GAIN {self._state.gain_index} — probe not ready."
+            )
             return self.state()
 
         if not self._read_at_gain(quick=False):
-            self._apply_gain_leds()
-            if self._last_env is None:
-                self._state.message = (
-                    f"GAIN {self._state.gain_index} — hold SEND on gel for LEDs."
-                )
+            self._discard_cached_echo()
+            self._clear_live(
+                f"GAIN {self._state.gain_index} — hold SEND on gel (new site)."
+            )
 
         return self.state()

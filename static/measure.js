@@ -189,6 +189,9 @@ async function refreshProbe() {
 
 async function beginSession() {
   $("#new-btn")?.classList.add("hidden");
+  stopPoll();
+  stopGainRepeat();
+  lastGainIndex = 0;
   const state = await api("/api/scan/begin");
   render(state);
   startPoll();

@@ -10,6 +10,7 @@ Usage:
   python3 scripts/probe_usb.py dump
   python3 scripts/probe_usb.py brute
   python3 scripts/probe_usb.py hunt    # find OUT command (hold SEND on skin)
+  python3 scripts/probe_usb.py decode --seconds 15  # SEND → all mm interpretations
 """
 
 from __future__ import annotations
@@ -195,6 +196,54 @@ def cmd_bx(probe, seconds: float) -> int:
     return 0
 
 
+def cmd_decode(probe, seconds: float) -> int:
+    """SEND capture — list every plausible mm decode (fat, muscle, depth, header)."""
+    from bodymetrix.bodyview_parse import header_byte3_mm, list_mm_candidates
+    from bodymetrix.bvalgo import thickness_from_packet
+
+    print("═" * 50)
+    print("  DECODE — hold SEND, show all mm candidates")
+    print(f"  ({seconds:.0f} second window)")
+    print("═" * 50)
+    try:
+        probe.connect()
+        probe.bodyview_init()
+        print("Hold SEND on gelled skin…")
+        result = probe._bodyview_button_read(hold_s=seconds)
+    except BodyMetrixError as exc:
+        print(f"Failed: {exc}", file=sys.stderr)
+        return 1
+
+    payload = result.payload
+    print(f"\nReceived {len(payload)} bytes")
+    if len(payload) < 8:
+        print("No data.")
+        return 1
+    print(f"Header: {payload[:4].hex()}  (byte 3 = {payload[3]})")
+    print(f"Hex:    {payload[:64].hex()}")
+
+    bvm = thickness_from_packet(payload)
+    if bvm:
+        print("\nBVAlgo:")
+        print(f"  fat layer:      {bvm.fat_thickness_mm:g} mm  ({bvm.method})")
+        print(f"  muscle depth:   {bvm.muscle_thickness_mm:g} mm")
+        print(f"  valid:          {bvm.valid}")
+
+    hb = header_byte3_mm(payload)
+    if hb is not None:
+        print(f"\nHeader byte 3 as mm: {hb:g}  (usually wrong)")
+
+    candidates = list_mm_candidates(payload)
+    if candidates:
+        print("\nAll candidates (best first):")
+        for c in candidates:
+            print(f"  {c.thickness_mm:5.1f} mm  conf={c.confidence:.2f}  {c.method}")
+    else:
+        print("\nNo plausible mm candidates.")
+
+    return 0
+
+
 def cmd_gain(probe) -> int:
     print("═" * 50)
     print("  BODYVIEW GAIN SCAN — gel, skin, HOLD SEND")
@@ -311,7 +360,7 @@ def main() -> int:
     )
     parser.add_argument(
         "command",
-        choices=["status", "describe", "init", "diagnose", "iokit", "send", "measure", "listen", "capture", "dump", "brute", "hunt", "gain", "bx", "passive", "scan"],
+        choices=["status", "describe", "init", "diagnose", "iokit", "send", "measure", "listen", "capture", "dump", "brute", "hunt", "gain", "bx", "decode", "passive", "scan"],
         help="What to do",
     )
     parser.add_argument("--seconds", type=float, default=30.0, help="SEND wait timeout")
@@ -352,6 +401,8 @@ def main() -> int:
         return cmd_gain(probe)
     if args.command == "bx":
         return cmd_bx(probe, args.seconds)
+    if args.command == "decode":
+        return cmd_decode(probe, args.seconds)
     if args.command == "passive":
         return cmd_passive(probe, args.seconds)
     if args.command == "scan":

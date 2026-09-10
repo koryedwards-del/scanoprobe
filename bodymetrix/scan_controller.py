@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -29,16 +30,24 @@ class BodyMetrixError(RuntimeError):
 class ScanController:
     """0–50 LED scale session using an open BodyMetrixProbe."""
 
+    # Gap since last good packet → treat next SEND as a fresh site.
+    NEW_SEND_GAP_S = 0.85
+
     def __init__(self, probe: BodyMetrixProbe) -> None:
         self._probe = probe
         self._state = ScanScaleState()
         self._last_env: np.ndarray | None = None
+        self._last_success_at: float | None = None
+        self._pending_new_send = False
 
     def state(self) -> dict[str, Any]:
         out = self._state.to_dict()
         out["has_echo"] = self._last_env is not None
         if self._last_env is not None:
             out["envelope"] = [int(x) for x in self._last_env[:600]]
+        if self._pending_new_send:
+            out["new_send"] = True
+            self._pending_new_send = False
         return out
 
     def _probe_usb_ready(self) -> bool:
@@ -84,6 +93,20 @@ class ScanController:
         """Drop last site — never show a previous location after the wand moves."""
         self._last_env = None
 
+    def _reset_for_new_send(self) -> None:
+        """Fresh SEND press — dark bar, gain 0, ready for new site."""
+        self._discard_cached_echo()
+        self._state.locked = False
+        self._state.locked_mm = None
+        self._state.set_slider(0)
+        self._clear_leds()
+        self._pending_new_send = True
+        if self._probe_usb_ready():
+            try:
+                self._probe.write_gain(0)
+            except Exception:
+                pass
+
     def _capture_at_gain(self, quick: bool = False) -> bytes:
         gain = self._state.gain
         self._probe.write_gain(gain)
@@ -106,7 +129,15 @@ class ScanController:
         return self._ingest_capture(payload, gain)
 
     def _ingest_capture(self, payload: bytes, gain: int) -> bool:
-        """Decode echo at this gain → cache envelope + LED bar."""
+        """Decode echo at this gain → cache envelope; display only when gain > 0."""
+        now = time.time()
+        if (
+            self._last_success_at is not None
+            and (now - self._last_success_at) > self.NEW_SEND_GAP_S
+        ):
+            self._reset_for_new_send()
+        self._last_success_at = now
+
         reading = scale_reading_from_payload(
             payload,
             gain_byte=gain,
@@ -119,11 +150,16 @@ class ScanController:
             self._last_env = envelope_from_payload(payload)
         except ValueError:
             return False
+        if self._state.slider <= 0:
+            self._clear_leds()
+            return True
         self._apply_reading(reading)
         return True
 
     def begin(self, site: int) -> dict[str, Any]:
         self._last_env = None
+        self._last_success_at = None
+        self._pending_new_send = False
         self._state = ScanScaleState(
             active=True,
             site=site,
@@ -137,23 +173,8 @@ class ScanController:
 
     def end(self) -> dict[str, Any]:
         self._last_env = None
+        self._last_success_at = None
         self._state = ScanScaleState()
-        return self.state()
-
-    def clear_reading(self) -> dict[str, Any]:
-        """Clear echo + bar for a retest; stay on the same site."""
-        if not self._state.active:
-            raise BodyMetrixError("Scan not active.")
-        self._discard_cached_echo()
-        self._state.locked = False
-        self._state.locked_mm = None
-        self._state.set_slider(0)
-        self._clear_leds()
-        if self._probe_usb_ready():
-            try:
-                self._probe.write_gain(0)
-            except Exception:
-                pass
         return self.state()
 
     def adjust_gain(self, delta: int, read_wand: bool = False) -> dict[str, Any]:
@@ -231,9 +252,11 @@ class ScanController:
         if self._state.locked:
             return self.state()
 
-        # Gain at 0 — dark screen; SEND alone does not display anything.
+        # Gain at 0 — dark screen; still listen for SEND to cache a new echo.
         if self._state.gain_index <= 0:
             self._clear_leds()
+            if self._probe_usb_ready():
+                self._read_at_gain(quick=True)
             return self.state()
 
         if not self._probe_usb_ready():

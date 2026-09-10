@@ -118,6 +118,16 @@ function applyLocalGain(val) {
 }
 
 function render(state) {
+  if (state.new_send) {
+    cachedEnvelope = null;
+    fastGainSeq++;
+    clearTimeout(fastGainTimer);
+    const slider = $("#gain-slider");
+    if (slider) slider.value = "0";
+    $("#gain-label").textContent = "GAIN 0";
+    $("#mm").textContent = "—";
+    renderLeds(Array(LED_COUNT).fill(false));
+  }
   if (Array.isArray(state.envelope) && state.envelope.length >= 32) {
     cachedEnvelope = state.envelope;
   }
@@ -192,30 +202,12 @@ async function setGainSlider(sliderVal, readWand = false) {
   }
 }
 
-async function clearReading() {
-  stopPoll();
-  sliderDragging = false;
-  cachedEnvelope = null;
-  fastGainSeq++;
-  clearTimeout(fastGainTimer);
-  try {
-    render(await api("/api/scan/clear"));
-  } catch {
-    /* ignore */
-  }
-  startPoll();
-}
-
 function bindGainSlider() {
   const slider = $("#gain-slider");
   if (!slider) return;
 
-  let downVal = null;
-  let lastTapAt = 0;
-
   const onStart = () => {
     sliderDragging = true;
-    downVal = slider.value;
     stopPoll();
   };
 
@@ -225,18 +217,8 @@ function bindGainSlider() {
 
   const onEnd = async () => {
     if (!sliderDragging) return;
-    const tapped = downVal === slider.value;
     sliderDragging = false;
     clearTimeout(fastGainTimer);
-    if (tapped) {
-      const now = Date.now();
-      if (now - lastTapAt < 450) {
-        lastTapAt = 0;
-        await clearReading();
-        return;
-      }
-      lastTapAt = now;
-    }
     await setGainSlider(slider.value, true);
     startPoll();
   };
@@ -249,8 +231,6 @@ function bindGainSlider() {
     sliderDragging = false;
     startPoll();
   });
-
-  $("#clear-btn")?.addEventListener("click", () => clearReading());
 }
 
 async function refreshProbe() {

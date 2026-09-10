@@ -1,16 +1,21 @@
-/** Scanoprobe — gain slider = wand amplitude; LEDs/LCD from echo at that gain. */
+/** Scanoprobe — instant local gain on drag; wand read on release only. */
 
 let pollTimer = null;
 let lastSlider = 0;
 let gainBusy = false;
 let sliderDragging = false;
+let cachedEnvelope = null;
+let fastGainTimer = null;
+let fastGainSeq = 0;
 
 const SLIDER_MAX = 50;
+const LED_COUNT = 50;
+const MM_PER_BIN = 0.1;
 const $ = (sel) => document.querySelector(sel);
 
 function rightmostLitLed(ledOn) {
-  if (!Array.isArray(ledOn) || ledOn.length < 50) return 0;
-  for (let i = 49; i >= 0; i--) {
+  if (!Array.isArray(ledOn) || ledOn.length < LED_COUNT) return 0;
+  for (let i = LED_COUNT - 1; i >= 0; i--) {
     if (ledOn[i]) return i + 1;
   }
   return 0;
@@ -21,6 +26,42 @@ function formatLcd(state) {
   if (fromState != null && fromState > 0) return String(fromState);
   const pos = rightmostLitLed(state.led_on);
   return pos > 0 ? String(pos) : "—";
+}
+
+function envelopeAtLed(env, led) {
+  const binIdx = Math.round(led / MM_PER_BIN);
+  const lo = Math.max(0, binIdx - 2);
+  const hi = Math.min(env.length, binIdx + 3);
+  if (lo >= hi) return 0;
+  let peak = 0;
+  for (let i = lo; i < hi; i++) peak = Math.max(peak, env[i]);
+  return peak;
+}
+
+function ledsForEcho(env, slider) {
+  const off = Array(LED_COUNT).fill(false);
+  if (slider <= 0 || env.length < 32) return off;
+
+  let peak = 0;
+  for (let i = 0; i < env.length; i++) peak = Math.max(peak, env[i]);
+  if (peak < 2) return off;
+
+  const dial = Math.min(1, slider / SLIDER_MAX);
+  if (dial >= 1) return Array(LED_COUNT).fill(true);
+
+  const head = env.slice(0, 16).sort((a, b) => a - b);
+  const baseline = head[Math.floor(head.length / 2)] ?? 0;
+  const span = Math.max(1, peak - baseline);
+  const floor = baseline + 0.05 * span;
+  const fillTo = Math.round(dial * LED_COUNT);
+  const threshold = peak - span * dial * 0.98;
+
+  let rightmost = 0;
+  for (let led = 1; led <= fillTo; led++) {
+    if (envelopeAtLed(env, led) > Math.max(floor, threshold)) rightmost = led;
+  }
+  for (let led = 1; led <= rightmost; led++) off[led - 1] = true;
+  return off;
 }
 
 async function api(path, body) {
@@ -36,28 +77,26 @@ async function api(path, body) {
 
 function ensureLedBar() {
   const bar = $("#led-bar");
-  if (!bar || bar.childElementCount >= 50) return;
+  if (!bar || bar.childElementCount >= LED_COUNT) return;
   bar.innerHTML = "";
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < LED_COUNT; i++) {
     const el = document.createElement("div");
     el.className = "led";
     bar.appendChild(el);
   }
 }
 
-function renderLeds(state) {
+function renderLeds(ledOn) {
   const bar = $("#led-bar");
   if (!bar) return;
-  const ledOn = state.led_on;
-
   bar.querySelectorAll(".led").forEach((el, i) => {
     el.className = "led";
-    const on = Array.isArray(ledOn) && ledOn.length >= 50 ? !!ledOn[i] : false;
+    const on = Array.isArray(ledOn) && ledOn.length >= LED_COUNT ? !!ledOn[i] : false;
     if (on) el.classList.add("on");
   });
 }
 
-function syncGainSlider(state) {
+function syncGainSlider(state, locked) {
   const slider = $("#gain-slider");
   if (!slider || sliderDragging) return;
   slider.max = String(state.slider_max ?? SLIDER_MAX);
@@ -66,14 +105,34 @@ function syncGainSlider(state) {
   lastSlider = pos;
 }
 
-function render(state) {
-  const sliderPos = state.slider ?? 0;
+function applyLocalGain(val) {
+  $("#gain-label").textContent = `GAIN ${val}`;
+  if (!cachedEnvelope) {
+    $("#mm").textContent = val > 0 ? "—" : "—";
+    return;
+  }
+  const ledOn = ledsForEcho(cachedEnvelope, val);
+  renderLeds(ledOn);
+  const lcd = rightmostLitLed(ledOn);
+  $("#mm").textContent = lcd > 0 ? String(lcd) : "—";
+}
 
-  $("#mm").textContent = formatLcd(state);
+function render(state) {
+  if (Array.isArray(state.envelope) && state.envelope.length >= 32) {
+    cachedEnvelope = state.envelope;
+  }
+
+  const sliderPos = state.slider ?? 0;
   $("#gain-label").textContent = `GAIN ${sliderPos}`;
 
-  syncGainSlider(state);
-  renderLeds(state);
+  if (sliderDragging && cachedEnvelope) {
+    applyLocalGain(parseInt($("#gain-slider")?.value ?? sliderPos, 10));
+  } else {
+    $("#mm").textContent = formatLcd(state);
+    renderLeds(state.led_on);
+    syncGainSlider(state);
+  }
+
   lastSlider = sliderPos;
 }
 
@@ -87,40 +146,58 @@ function stopPoll() {
 function startPoll() {
   stopPoll();
   pollTimer = setInterval(async () => {
+    if (sliderDragging) return;
     try {
       render(await api("/api/scan/tick"));
     } catch {
       /* waiting for SEND */
     }
-  }, 700);
+  }, 350);
+}
+
+function queueFastGain(val) {
+  applyLocalGain(val);
+  const seq = ++fastGainSeq;
+  clearTimeout(fastGainTimer);
+  fastGainTimer = setTimeout(() => {
+    api("/api/scan/gain", { slider: val, fast: true })
+      .then((state) => {
+        if (seq === fastGainSeq && sliderDragging) render(state);
+      })
+      .catch(() => {});
+  }, 12);
 }
 
 async function setGainSlider(sliderVal, readWand = false) {
   const val = Math.max(0, Math.min(SLIDER_MAX, parseInt(sliderVal, 10)));
   const slider = $("#gain-slider");
   if (slider) slider.value = String(val);
-  $("#gain-label").textContent = `GAIN ${val}`;
 
-  if (readWand && gainBusy) return;
-  if (readWand) gainBusy = true;
+  if (!readWand) {
+    queueFastGain(val);
+    return;
+  }
 
+  if (gainBusy) return;
+  gainBusy = true;
   const prev = lastSlider;
+  applyLocalGain(val);
   try {
-    const body = readWand ? { slider: val, read: true } : { slider: val };
-    render(await api("/api/scan/gain", body));
+    render(await api("/api/scan/gain", { slider: val, read: true }));
   } catch {
-    if (readWand) {
-      if (slider) slider.value = String(prev);
-      $("#gain-label").textContent = `GAIN ${prev}`;
-    }
+    if (slider) slider.value = String(prev);
+    applyLocalGain(prev);
   } finally {
-    if (readWand) gainBusy = false;
+    gainBusy = false;
   }
 }
 
 async function clearReading() {
   stopPoll();
   sliderDragging = false;
+  cachedEnvelope = null;
+  fastGainSeq++;
+  clearTimeout(fastGainTimer);
   try {
     render(await api("/api/scan/clear"));
   } catch {
@@ -139,16 +216,18 @@ function bindGainSlider() {
   const onStart = () => {
     sliderDragging = true;
     downVal = slider.value;
+    stopPoll();
   };
 
   const onInput = () => {
-    setGainSlider(slider.value, false);
+    queueFastGain(parseInt(slider.value, 10));
   };
 
   const onEnd = async () => {
     if (!sliderDragging) return;
     const tapped = downVal === slider.value;
     sliderDragging = false;
+    clearTimeout(fastGainTimer);
     if (tapped) {
       const now = Date.now();
       if (now - lastTapAt < 450) {
@@ -159,6 +238,7 @@ function bindGainSlider() {
       lastTapAt = now;
     }
     await setGainSlider(slider.value, true);
+    startPoll();
   };
 
   slider.addEventListener("pointerdown", onStart);
@@ -167,6 +247,7 @@ function bindGainSlider() {
   slider.addEventListener("pointerup", onEnd);
   slider.addEventListener("pointercancel", () => {
     sliderDragging = false;
+    startPoll();
   });
 
   $("#clear-btn")?.addEventListener("click", () => clearReading());
@@ -189,6 +270,7 @@ async function refreshProbe() {
 async function beginSession() {
   stopPoll();
   sliderDragging = false;
+  cachedEnvelope = null;
   lastSlider = 0;
   render(await api("/api/scan/begin"));
   startPoll();

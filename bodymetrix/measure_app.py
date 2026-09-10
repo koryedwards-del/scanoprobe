@@ -63,9 +63,12 @@ def create_measure_app() -> Flask:
     def api_scan_gain() -> Any:
         payload = request.get_json(force=True) or {}
         read_wand = bool(payload.get("read", False))
+        fast = bool(payload.get("fast", False))
         try:
             if "slider" in payload:
-                state = scan.set_slider(int(payload["slider"]), read_wand=read_wand)
+                state = scan.set_slider(
+                    int(payload["slider"]), read_wand=read_wand, fast=fast
+                )
             elif "index" in payload:
                 state = scan.set_gain_index(int(payload["index"]), read_wand=read_wand)
             else:

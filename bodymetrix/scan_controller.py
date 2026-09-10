@@ -37,6 +37,8 @@ class ScanController:
     def state(self) -> dict[str, Any]:
         out = self._state.to_dict()
         out["has_echo"] = self._last_env is not None
+        if self._last_env is not None:
+            out["envelope"] = [int(x) for x in self._last_env[:600]]
         return out
 
     def _probe_usb_ready(self) -> bool:
@@ -161,8 +163,10 @@ class ScanController:
             raise BodyMetrixError("Release HOLD before changing gain.")
         return self.set_slider(self._state.slider + int(delta), read_wand=read_wand)
 
-    def set_slider(self, slider: int, read_wand: bool = False) -> dict[str, Any]:
-        """Slider sets wand gain amplitude; LEDs come from echo at that gain."""
+    def set_slider(
+        self, slider: int, read_wand: bool = False, fast: bool = False
+    ) -> dict[str, Any]:
+        """Slider sets software gain; LEDs from cached echo. USB only on release/read."""
         if not self._state.active:
             raise BodyMetrixError("Scan not active.")
         if self._state.locked:
@@ -173,11 +177,15 @@ class ScanController:
         if self._state.slider <= 0:
             self._discard_cached_echo()
             self._clear_leds()
-            if self._probe_usb_ready():
+            if not fast and self._probe_usb_ready():
                 try:
                     self._probe.write_gain(0)
                 except Exception:
                     pass
+            return self.state()
+
+        if fast:
+            self._apply_echo_leds()
             return self.state()
 
         usb_ok = self._probe_usb_ready()
@@ -187,7 +195,6 @@ class ScanController:
             except Exception:
                 usb_ok = False
 
-        # Re-threshold cached echo at new gain; read wand when asked or no cache yet.
         if usb_ok and (read_wand or self._last_env is None):
             self._read_at_gain(quick=True)
         self._apply_echo_leds()

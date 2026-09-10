@@ -51,6 +51,16 @@ def slider_for_gain_index(gain_index: int) -> int:
     return int(round((gain_index / float(FULL_BAR_GAIN_INDEX)) * SLIDER_MAX))
 
 
+def rightmost_lit_led(led_on: tuple[bool, ...] | list[bool]) -> int:
+    """Rightmost lit LED position 1–50, or 0 if none."""
+    if not led_on or len(led_on) < LED_COUNT:
+        return 0
+    for i in range(LED_COUNT - 1, -1, -1):
+        if led_on[i]:
+            return i + 1
+    return 0
+
+
 def leds_for_slider(slider: int) -> tuple[bool, ...]:
     """Slider 0–50 → that many LEDs on (1..N). Far left 0, far right 50."""
     n = max(0, min(SLIDER_MAX, int(slider)))
@@ -312,6 +322,7 @@ class ScanScaleState:
             "live_mm": self.live_mm,
             "locked_mm": self.locked_mm,
             "led_on": list(self.led_on) if len(self.led_on) >= LED_COUNT else list(EMPTY_LED_ON),
+            "lcd": rightmost_lit_led(self.led_on),
             "led_level": led_level(mm),
             "led_max": LED_COUNT,
             "message": self.message,

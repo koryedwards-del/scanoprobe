@@ -11,9 +11,22 @@ let sliderDragging = false;
 const SLIDER_MAX = 50;
 const $ = (sel) => document.querySelector(sel);
 
-function formatMm(mm) {
-  if (mm == null || !Number.isFinite(mm)) return "—";
-  return (Math.round(mm * 10) / 10).toFixed(1);
+function rightmostLitLed(ledOn) {
+  if (!Array.isArray(ledOn) || ledOn.length < 50) return 0;
+  for (let i = 49; i >= 0; i--) {
+    if (ledOn[i]) return i + 1;
+  }
+  return 0;
+}
+
+function formatLcd(state) {
+  const fromState = state.lcd;
+  if (fromState != null && fromState > 0) return String(fromState);
+  const pos = rightmostLitLed(state.led_on);
+  if (pos > 0) return String(pos);
+  const slider = state.slider ?? 0;
+  if (slider > 0) return String(slider);
+  return "—";
 }
 
 async function api(path, body) {
@@ -84,7 +97,7 @@ function render(state, gainChanged = false) {
     maxGainIndex = Math.max(0, state.gain_steps - 1);
   }
 
-  $("#mm").textContent = formatMm(mm);
+  $("#mm").textContent = formatLcd(state);
   $("#gain-label").textContent = `GAIN ${sliderPos}`;
   $("#device").classList.toggle("locked", locked);
 
@@ -137,6 +150,7 @@ async function setGainSlider(sliderVal, readWand = false) {
   const slider = $("#gain-slider");
   if (slider) slider.value = String(val);
   $("#gain-label").textContent = `GAIN ${val}`;
+  $("#mm").textContent = val > 0 ? String(val) : "—";
   try {
     const body = readWand ? { slider: val, read: true } : { slider: val };
     const state = await api("/api/scan/gain", body);

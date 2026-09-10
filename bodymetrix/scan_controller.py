@@ -8,6 +8,7 @@ from bodymetrix.scan_scale import (
     DEFAULT_GAIN_INDEX,
     GAIN_STEPS,
     ScanScaleState,
+    reading_hint,
     scale_reading_from_payload,
 )
 from bodymetrix.scanoprobe import is_placeholder_payload
@@ -35,7 +36,7 @@ class ScanController:
             active=True,
             site=site,
             gain_index=DEFAULT_GAIN_INDEX,
-            message="+ fill 50 → − to 3 LEDs (skip 1–3 skin) → confirm ×3 → HOLD.",
+            message="No true mm without gain — + fill bar, − to 3-LED bracket, HOLD.",
         )
         self._probe.ensure_session()
         return self._state.to_dict()
@@ -70,7 +71,9 @@ class ScanController:
             self._state.message = "HOLD released — adjust gain or re-lock."
         else:
             if self._state.live_mm is None:
-                raise BodyMetrixError("No reading yet. Hold SEND on gelled skin.")
+                raise BodyMetrixError(
+                    "No true mm yet — + fill bar, − to three-LED bracket, then HOLD."
+                )
             self._state.locked = True
             self._state.locked_mm = self._state.live_mm
             self._state.message = (
@@ -94,13 +97,19 @@ class ScanController:
         if len(capture.payload) < 8:
             capture = probe._bodyview_button_read(hold_s=0.35)
 
-        reading = scale_reading_from_payload(capture.payload)
+        reading = scale_reading_from_payload(capture.payload, gain_byte=gain)
         if reading is not None:
+            self._state.led_on = reading.led_on
+            self._state.bracket = reading.bracket
             self._state.live_mm = reading.mm
-            self._state.message = f"{reading.mm:g} mm @ gain {gain} ({reading.method})"
+            self._state.message = reading_hint(reading)
         elif is_placeholder_payload(capture.payload):
+            self._state.bracket = False
+            self._state.live_mm = None
             self._state.message = "No signal — gel, skin, hold SEND (or unplug/replug)."
         else:
-            self._state.message = f"No mm @ gain {gain} — try gain +/-"
+            self._state.bracket = False
+            self._state.live_mm = None
+            self._state.message = "Dial + gain — wand needs gain for true mm"
 
         return self._state.to_dict()

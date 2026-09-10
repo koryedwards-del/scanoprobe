@@ -76,26 +76,24 @@ Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired)
 2. **Gain −** until only **three consecutive LEDs** remain in the fat zone.
 3. **Ignore LEDs 1, 2, 3** — those are **skin depth**, not the fat reading.
 4. Example bracket: **14, 15, 16** — **15 is the mm reading** (center LED solid).
-5. Fine-tune gain: **14 and 16 bounce**, **15 stays solid** — that is correct.
-6. **Repeat steps 2–5 three times** — confirm the center mm (e.g. 15) stays consistent before locking. (Production standard: 20k+ users, 15 years.)
-7. **HOLD** locks the mm. Put down wand.
+5. Fine-tune gain: **14 and 16 bounce**, **15 stays solid** — that is how gain **narrows** to the correct mm.
+6. **HOLD** locks the mm. Put down wand.
 
-Gain changes **which echoes are visible** on the bar. It does not change the mm formula — you tune until the fascia sits in the three-LED bracket.
+**The wand never gives the true mm without gain control.** A raw packet at gain 0 is not a valid reading. Gain + fills the bar; gain − brackets to three LEDs; **then** center LED = mm. Showing 4 mm at gain 0 is wrong — do not display mm until bracketed.
 
 ### Data flow (locked)
 
 ```
 SEND held + gel
   → USB bulk packet (header 00 00 00 XX + envelope waveform)
-  → decode peak depth → mm on 0–50 LED bar + LCD
+  → envelope + gain → threshold → which LEDs light (not fill 1..N)
   → gain + fills bar, gain − brackets to 3 LEDs (ignore 1–3 skin)
-  → repeat bracket tune ×3, confirm center mm stable
-  → HOLD locks center LED mm (e.g. 15 from 14–15–16)
+  → center LED = mm (e.g. 15 from 14–15–16) → HOLD
 ```
 
 **Do not** use header byte 3 as mm — it is not the thickness (e.g. `04` → 4.0 mm is wrong).
 
-**Fat mm (decode):** assume **3 mm skin**, find **fat/muscle fascia** peak on envelope (bytes 4+, 0.1 mm/bin), **fat = fascia depth − 3 mm**. Gain must be high enough for the fascia echo to appear before bracketing.
+**Fat mm (decode):** envelope bytes 4+ at this **gain** → per-LED threshold → bracket center = mm. Wrong decode at any gain is still wrong.
 
 ---
 

@@ -33,19 +33,22 @@ function ensureLedBar() {
   }
 }
 
-function renderLeds(mm, gainChanged) {
+function renderLeds(state, gainChanged) {
   const bar = $("#led-bar");
   if (!bar) return;
-  const level = mm != null ? Math.max(0, Math.min(50, Math.round(mm))) : 0;
-  const b1 = level - 1;
-  const b2 = level;
-  const b3 = level + 1;
+  const mm = state.mm ?? state.live_mm ?? state.locked_mm;
+  const ledOn = state.led_on;
+  const center = mm != null ? Math.round(mm) : 0;
+  const b1 = center - 1;
+  const b2 = center;
+  const b3 = center + 1;
 
   bar.querySelectorAll(".led").forEach((el, i) => {
     const n = i + 1;
     el.className = "led";
-    if (level > 0 && n <= level) el.classList.add("on");
-    if (level >= 2 && (n === b1 || n === b2 || n === b3)) {
+    const on = Array.isArray(ledOn) && ledOn.length >= 50 ? ledOn[i] : n <= center && center > 0;
+    if (on) el.classList.add("on");
+    if (center >= 2 && (n === b1 || n === b2 || n === b3)) {
       if (n === b2) el.classList.add("bracket-core");
       else el.classList.add("bracket-edge");
       if (gainChanged && (n === b1 || n === b3)) el.classList.add("bounce");
@@ -73,7 +76,7 @@ function render(state, gainChanged = false) {
     liveWrap.innerHTML = 'LIVE <span class="live-dot" id="live-dot"></span>';
   }
 
-  renderLeds(mm, gainChanged && !locked);
+  renderLeds(state, gainChanged && !locked);
   if (state.gain_index != null) lastGainIndex = state.gain_index;
 }
 

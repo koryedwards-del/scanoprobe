@@ -1035,7 +1035,7 @@ class BodyMetrixProbe:
             # Fall back to button path at current gain.
             capture = self._bodyview_button_read(hold_s=0.35)
 
-        mm = scale_mm_from_payload(capture.payload)
+        mm = scale_mm_from_payload(capture.payload, gain_byte=gain)
         if mm is not None:
             self._scan.live_mm = mm
             self._scan.message = f"{mm:g} mm @ gain {gain}"

@@ -88,19 +88,53 @@ def bracket_mode_active(gain_index: int, peak_gain_index: int) -> bool:
     )
 
 
-def _progressive_fill_mask(gain_index: int) -> list[bool]:
-    """Gain sets how many LEDs light (0 = dark). + fills toward 50 at top gain."""
-    if gain_index <= 0:
+def _bin_for_led(led: int) -> int:
+    return int(round(led / MM_PER_BIN))
+
+
+def _envelope_at_led(env: np.ndarray, led: int) -> float:
+    """Peak envelope near this depth LED (1–50 mm axis)."""
+    bin_idx = _bin_for_led(led)
+    lo = max(0, bin_idx - 2)
+    hi = min(len(env), bin_idx + 3)
+    return float(np.max(env[lo:hi]))
+
+
+def _threshold_for_gain(env: np.ndarray, gain_index: int, gain_byte: int) -> float:
+    """
+    Higher gain → lower threshold → more LEDs appear where echo is strong.
+
+    Threshold slides from just below peak (low gain) to baseline (top gain).
+    Gain 0 is above peak (dark).
+    """
+    peak = float(np.max(env))
+    if gain_index <= 0 or gain_byte <= 0:
+        return peak + 1.0
+    baseline = float(np.median(env[:16]))
+    span = max(1.0, peak - baseline)
+    step = min(1.0, gain_index / float(FULL_BAR_GAIN_INDEX))
+    # Smooth steps: each + gain lowers threshold through the echo range.
+    threshold = peak - span * step * 0.98
+    byte_nudge = (gain_byte / 255.0) * 0.04 * span
+    return threshold - byte_nudge
+
+
+def _envelope_threshold_mask(
+    env: np.ndarray, gain_byte: int, gain_index: int
+) -> list[bool]:
+    """Each LED lights only if echo at that depth exceeds the gain threshold."""
+    if gain_index <= 0 or gain_byte <= 0 or len(env) < 32:
+        return [False] * LED_COUNT
+    if float(np.max(env)) < 2.0:
         return [False] * LED_COUNT
     if gain_index >= FULL_BAR_GAIN_INDEX:
         return [True] * LED_COUNT
-    fill_to = min(
-        LED_COUNT,
-        max(0, int(round((gain_index / FULL_BAR_GAIN_INDEX) * LED_COUNT))),
-    )
+
+    threshold = _threshold_for_gain(env, gain_index, gain_byte)
     on = [False] * LED_COUNT
-    for led in range(1, fill_to + 1):
-        on[led - 1] = True
+    for led in range(1, LED_COUNT + 1):
+        if _envelope_at_led(env, led) > threshold:
+            on[led - 1] = True
     return on
 
 
@@ -121,20 +155,15 @@ def _fascia_center_led(env: np.ndarray) -> int:
     return led if led is not None else 0
 
 
-def leds_for_gain(gain_index: int) -> tuple[bool, ...]:
-    """+ / − gain sets how many LEDs light; gain 0 is always dark."""
-    return tuple(_progressive_fill_mask(gain_index))
-
-
 def leds_for_echo(
     env: np.ndarray,
     gain_byte: int,
     gain_index: int,
     peak_gain_index: int,
 ) -> tuple[bool, ...]:
-    """LED count from gain only — echo is used for mm, not for which LEDs light."""
-    _ = env, gain_byte, peak_gain_index
-    return leds_for_gain(gain_index)
+    """Echo + gain threshold → which depth LEDs light (not fill 1..N)."""
+    _ = peak_gain_index
+    return tuple(_envelope_threshold_mask(env, gain_byte, gain_index))
 
 
 def _reading_from_parts(
@@ -150,7 +179,7 @@ def _reading_from_parts(
         return ScaleReading(None, dark, False, 0, "gain0")
 
     bracket_mode = bracket_mode_active(gain_index, peak_gain_index)
-    mm = _bracket_mm(bracket_mode, env)
+    mm = _bracket_mm(bracket_mode, env, list(led_on))
     fat_lit = _fat_leds_lit(list(led_on))
     bracket = mm is not None
     if bracket:
@@ -180,9 +209,9 @@ def _led_mask(
     gain_index: int,
     bracket_mode: bool,
 ) -> list[bool]:
-    """+ / − gain controls lit count; 0 is dark; no sticky bracket pattern."""
-    _ = env, gain_byte, bracket_mode
-    return _progressive_fill_mask(gain_index)
+    """Gain sets threshold on echo — LEDs appear/vanish at real depths."""
+    _ = bracket_mode
+    return _envelope_threshold_mask(env, gain_byte, gain_index)
 
 
 def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
@@ -203,19 +232,23 @@ def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
 def _bracket_mm(
     bracket_mode: bool,
     env: np.ndarray | None,
+    led_on: list[bool] | None = None,
 ) -> float | None:
     """
     True mm only after full bar then dial − (bracket_mode).
 
-    Fascia depth comes from echo — not from how many LEDs gain lights (ignore skin 1–3).
+    Prefer three contiguous fat LEDs; else fascia peak from echo (ignore skin 1–3).
     """
-    if not bracket_mode or env is None or len(env) < 32:
+    if not bracket_mode or led_on is None:
         return None
-    fascia_led = _fascia_center_led(env)
-    if fascia_led <= SKIN_LEDS:
+    if _fat_leds_lit(led_on) != BRACKET_LEDS:
         return None
-    mm = round(float(fascia_led), 1)
-    return mm if is_plausible_mm(mm) else None
+    for start, end in reversed(_fat_zone_runs(led_on)):
+        if end - start + 1 == BRACKET_LEDS and start > SKIN_LEDS:
+            mm = round((start + end) / 2.0, 1)
+            if is_plausible_mm(mm):
+                return mm
+    return None
 
 
 def _fat_leds_lit(led_on: list[bool]) -> int:
@@ -270,11 +303,11 @@ def reading_hint(reading: ScaleReading) -> str:
     if reading.bracket and reading.mm is not None:
         return f"{reading.mm:g} mm — HOLD to lock"
     if reading.fat_leds_lit >= LED_COUNT - SKIN_LEDS - 2:
-        return "Bar full — dial − (fewer LEDs)"
+        return "Bar full — dial − to bracket fascia"
     if reading.fat_leds_lit == 0:
-        return "Gain 0 — dark. Press + with SEND held."
+        return "Gain 0 — dark. Press + with SEND held on gel."
     lit = sum(reading.led_on)
-    return f"Gain controls LEDs ({lit} lit) — + more, − fewer; 0 = dark"
+    return f"+ raises gain → LEDs appear ({lit} lit); − they fade; 0 = dark"
 
 
 @dataclass

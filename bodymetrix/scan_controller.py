@@ -13,7 +13,7 @@ from bodymetrix.scan_scale import (
     FULL_BAR_GAIN_INDEX,
     GAIN_STEPS,
     ScanScaleState,
-    leds_for_gain,
+    leds_for_echo,
     reading_from_led_on,
     reading_hint,
     scale_reading_from_payload,
@@ -42,14 +42,24 @@ class ScanController:
         return out
 
     def _apply_gain_leds(self) -> None:
-        """Instant LED update — + / − gain sets lit count (no USB wait)."""
+        """Re-threshold cached echo at new gain — LEDs appear/vanish instantly."""
         if self._state.gain_index <= 0:
             self._state.led_on = EMPTY_LED_ON
             self._state.bracket = False
             self._state.live_mm = None
             self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
             return
-        self._state.led_on = leds_for_gain(self._state.gain_index)
+        if self._last_env is None:
+            self._state.led_on = EMPTY_LED_ON
+            self._state.bracket = False
+            self._state.live_mm = None
+            return
+        self._state.led_on = leds_for_echo(
+            self._last_env,
+            self._state.gain,
+            self._state.gain_index,
+            self._state.peak_gain_index,
+        )
         reading = reading_from_led_on(
             self._state.led_on,
             self._state.gain,

@@ -57,36 +57,56 @@ def _envelope_at_led(env: np.ndarray, led: int) -> float:
     return float(np.max(env[lo:hi]))
 
 
-def _threshold_for_gain(env: np.ndarray, gain_index: int, gain_byte: int) -> float:
-    """
-    Higher gain → lower threshold → more LEDs appear where echo is strong.
-
-    Smooth mapping on the wand gain byte (0–255) so each dial step is small.
-    """
-    peak = float(np.max(env))
-    if gain_index <= 0 or gain_byte <= 0:
-        return peak + 1.0
+def _eligible_echo_leds(env: np.ndarray) -> list[tuple[float, int]]:
+    """Depth LEDs with real echo at this site — (amplitude, led number)."""
+    if len(env) < 32 or float(np.max(env)) < 2.0:
+        return []
     baseline = float(np.median(env[:16]))
-    span = max(1.0, peak - baseline)
-    dial = min(1.0, gain_byte / 255.0)
-    return baseline + span * (1.0 - dial) * 0.98
+    span = max(1.0, float(np.max(env)) - baseline)
+    floor = baseline + 0.06 * span
+    eligible: list[tuple[float, int]] = []
+    for led in range(1, LED_COUNT + 1):
+        amp = _envelope_at_led(env, led)
+        if amp > floor:
+            eligible.append((amp, led))
+    return eligible
 
 
 def _envelope_threshold_mask(
     env: np.ndarray, gain_byte: int, gain_index: int
 ) -> list[bool]:
-    """Each LED lights only if echo at that depth exceeds the gain threshold."""
+    """
+    Gain dial turns LEDs on/off at real echo depths.
+
+    + gain → more LEDs on (weakest echoes appear last).
+    − gain → LEDs go off weakest-first; strongest (fascia) stay longest.
+    """
     if gain_index <= 0 or gain_byte <= 0 or len(env) < 32:
         return [False] * LED_COUNT
-    if float(np.max(env)) < 2.0:
+
+    eligible = _eligible_echo_leds(env)
+    if not eligible:
         return [False] * LED_COUNT
 
-    threshold = _threshold_for_gain(env, gain_index, gain_byte)
+    dial = min(1.0, max(0.0, gain_byte / 255.0))
+    eligible.sort(key=lambda item: item[0])  # weakest .. strongest
+    n_lit = int(round(dial * len(eligible)))
+    if dial > 0 and n_lit < 1:
+        n_lit = 1
+
     on = [False] * LED_COUNT
-    for led in range(1, LED_COUNT + 1):
-        if _envelope_at_led(env, led) > threshold:
-            on[led - 1] = True
+    for _, led in eligible[-n_lit:]:
+        on[led - 1] = True
     return on
+
+
+def _bar_full(led_on: list[bool], env: np.ndarray, gain_byte: int) -> bool:
+    """All echo depths at this site are lit (bar full for this reading)."""
+    eligible = _eligible_echo_leds(env)
+    if len(eligible) < 4:
+        return False
+    lit = sum(led_on)
+    return lit >= len(eligible) and gain_byte >= GAIN_STEPS[FULL_BAR_GAIN_INDEX]
 
 
 def leds_for_echo(
@@ -140,6 +160,7 @@ def _reading_from_parts(
     led_on: tuple[bool, ...],
     gain_byte: int,
     gain_index: int,
+    env: np.ndarray | None = None,
 ) -> ScaleReading:
     if gain_index <= 0:
         dark = tuple([False] * LED_COUNT)
@@ -151,7 +172,7 @@ def _reading_from_parts(
     bracket = mm is not None
     if bracket:
         method = f"3led@{mm}g{gain_byte}"
-    elif fat_lit >= LED_COUNT - SKIN_LEDS - 2:
+    elif env is not None and _bar_full(led_list, env, gain_byte):
         method = f"full-bar/g{gain_byte}"
     elif fat_lit == 0:
         method = f"no-signal/g{gain_byte}"
@@ -164,8 +185,9 @@ def reading_from_led_on(
     led_on: tuple[bool, ...],
     gain_byte: int,
     gain_index: int = DEFAULT_GAIN_INDEX,
+    env: np.ndarray | None = None,
 ) -> ScaleReading:
-    return _reading_from_parts(led_on, gain_byte, gain_index)
+    return _reading_from_parts(led_on, gain_byte, gain_index, env)
 
 
 def scale_reading_from_payload(
@@ -188,7 +210,7 @@ def scale_reading_from_payload(
         return None
 
     led_on = tuple(_envelope_threshold_mask(env, gain_byte, gain_index))
-    return _reading_from_parts(led_on, gain_byte, gain_index)
+    return _reading_from_parts(led_on, gain_byte, gain_index, env)
 
 
 def scale_mm_from_payload(

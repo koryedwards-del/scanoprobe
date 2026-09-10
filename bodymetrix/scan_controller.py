@@ -76,7 +76,9 @@ class ScanController:
             self._state.gain_index,
         )
         self._apply_reading(
-            reading_from_led_on(led_on, self._state.gain, self._state.gain_index)
+            reading_from_led_on(
+                led_on, self._state.gain, self._state.gain_index, self._last_env
+            )
         )
 
     def _capture_at_gain(self, quick: bool = False) -> bytes:

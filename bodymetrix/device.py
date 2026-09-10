@@ -480,31 +480,66 @@ class BodyMetrixProbe:
             notes=notes,
         )
 
+    def write_gain(self, gain: int) -> None:
+        """Send gain byte to wand (BodyView writebxGainandRead step 1)."""
+        if self._device is None:
+            self.connect()
+        if not self._pipes_configured:
+            self._bodyview_configure_pipes(20, 50)
+        gain_out = bytes([gain & 0xFF])
+        for ep in self._write_endpoints:
+            try:
+                ep.write(gain_out, self._write_timeout_ms)
+            except Exception:  # noqa: BLE001
+                continue
+
     def write_gain_and_read(self, gain: int, read_ms: int = 500) -> CaptureResult:
-        """BodyView bodymetrixDriver::writebxGainandRead: — write gain byte, read echo."""
+        """BodyView writebxGainandRead: OUT gain byte, then OUT a001 while SEND held."""
         if self._device is None:
             self.connect()
         if not self._pipes_configured:
             self._bodyview_configure_pipes(20, 50)
 
-        gain_byte = bytes([gain & 0xFF])
-        for ep in self._write_endpoints:
-            try:
-                ep.write(gain_byte, self._write_timeout_ms)
-            except Exception:  # noqa: BLE001
-                continue
+        gain_out = bytes([gain & 0xFF])
+        trigger = b"\xa0\x01"
+        write_ms = self._write_timeout_ms
+        read_one_ms = max(self._read_timeout_ms, 200)
+        deadline = time.time() + read_ms / 1000.0
+        best = b""
+        best_q = 0.0
 
-        time.sleep(0.05)
-        best = CaptureResult(payload=b"", method="none")
-        for hit in self._read_endpoint_for(read_ms, accumulate=True):
-            if len(hit.payload) > len(best.payload):
-                best = CaptureResult(
-                    payload=hit.payload,
-                    method="writebxGainandRead",
-                    endpoint=hit.endpoint,
-                    notes=[f"gain={gain} OUT {gain_byte.hex()}"],
-                )
-        return best
+        self.write_gain(gain)
+        time.sleep(0.03)
+
+        while time.time() < deadline:
+            for ep in self._write_endpoints:
+                try:
+                    ep.write(trigger, write_ms)
+                except Exception:  # noqa: BLE001
+                    continue
+            time.sleep(0.05)
+            data = self._read_bulk_up_to(0x800, read_one_ms)
+            if not data:
+                continue
+            q = payload_quality(data)
+            if q > best_q or (q == best_q and len(data) > len(best)):
+                best = data
+                best_q = q
+            if best_q >= 0.35 and len(best) >= 32:
+                break
+
+        notes = [
+            f"gain={gain} OUT {gain_out.hex()} + {trigger.hex()} "
+            f"→ {len(best)} bytes (q={best_q:.2f})"
+        ]
+        if best and is_placeholder_payload(best):
+            notes.append("warning: padding — hold SEND on gelled skin")
+
+        return CaptureResult(
+            payload=best,
+            method="writebxGainandRead",
+            notes=notes,
+        )
 
     def try_bodyview_gain_scan(self) -> list[dict[str, Any]]:
         """Try BodyView gain values; user holds SEND on skin during scan."""

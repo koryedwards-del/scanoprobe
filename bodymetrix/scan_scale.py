@@ -130,6 +130,36 @@ def _envelope_bracket_mask(env: np.ndarray, gain_byte: int) -> list[bool]:
     return on
 
 
+def leds_for_echo(
+    env: np.ndarray,
+    gain_byte: int,
+    gain_index: int,
+    peak_gain_index: int,
+) -> tuple[bool, ...]:
+    """1982 LED bar from last echo envelope + current gain."""
+    bracket_mode = bracket_mode_active(gain_index, peak_gain_index)
+    return tuple(_led_mask(env, gain_byte, gain_index, bracket_mode))
+
+
+def reading_from_led_on(
+    led_on: tuple[bool, ...], gain_byte: int
+) -> ScaleReading:
+    """Bracket/mm state from an LED pattern."""
+    led_list = list(led_on)
+    mm = _bracket_mm(led_list)
+    fat_lit = _fat_leds_lit(led_list)
+    bracket = mm is not None
+    if bracket:
+        method = f"bracket@{mm}g{gain_byte}"
+    elif fat_lit >= LED_COUNT - SKIN_LEDS - 2:
+        method = f"full-bar/g{gain_byte}"
+    elif fat_lit == 0:
+        method = f"no-signal/g{gain_byte}"
+    else:
+        method = f"tuning/g{gain_byte}/lit{fat_lit}"
+    return ScaleReading(mm, led_on, bracket, fat_lit, method)
+
+
 def _led_mask(
     env: np.ndarray,
     gain_byte: int,
@@ -196,7 +226,7 @@ def scale_reading_from_payload(
     if not is_bodyview_bx_packet(payload):
         return None
     # Real BX packets are 2048 bytes with trailing zeros — check header+envelope only.
-    if is_placeholder_payload(payload[:128]):
+    if is_placeholder_payload(payload):
         return None
     try:
         env = envelope_from_payload(payload)

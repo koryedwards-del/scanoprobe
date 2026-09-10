@@ -109,7 +109,6 @@ async function nudgeGain(delta) {
   const state = await api("/api/scan/gain", { delta });
   const gainChanged = state.gain_index !== prev;
   render(state, gainChanged);
-  if (!state.locked) await api("/api/scan/tick").then((s) => render(s, gainChanged));
 }
 
 function stopGainRepeat() {
@@ -120,9 +119,18 @@ function stopGainRepeat() {
 }
 
 function startGainRepeat(delta) {
+  stopPoll();
   stopGainRepeat();
-  nudgeGain(delta).catch(() => {});
-  gainRepeatTimer = setInterval(() => nudgeGain(delta).catch(() => {}), 100);
+  nudgeGain(delta).catch((err) => {
+    const status = $("#status-message");
+    if (status) status.textContent = err.message || "Gain failed";
+  });
+  gainRepeatTimer = setInterval(() => {
+    nudgeGain(delta).catch((err) => {
+      const status = $("#status-message");
+      if (status) status.textContent = err.message || "Gain failed";
+    });
+  }, 600);
 }
 
 function bindGainButton(btn, delta) {
@@ -132,7 +140,11 @@ function bindGainButton(btn, delta) {
     if (btn.disabled) return;
     startGainRepeat(delta);
   };
-  const onEnd = () => stopGainRepeat();
+  const onEnd = () => {
+    stopGainRepeat();
+    if (!$("#new-btn")?.classList.contains("hidden")) return;
+    startPoll();
+  };
   btn.addEventListener("mousedown", onStart);
   btn.addEventListener("mouseup", onEnd);
   btn.addEventListener("mouseleave", onEnd);

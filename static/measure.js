@@ -120,7 +120,6 @@ function bindGainSlider() {
 
   const onStart = () => {
     sliderDragging = true;
-    stopPoll();
   };
 
   const onInput = () => {
@@ -131,7 +130,6 @@ function bindGainSlider() {
     if (!sliderDragging) return;
     sliderDragging = false;
     await setGainSlider(slider.value, true);
-    startPoll();
   };
 
   slider.addEventListener("pointerdown", onStart);

@@ -169,13 +169,13 @@ class ScanController:
             except Exception:
                 usb_ok = False
 
-        # Instant feedback: re-threshold cached echo at new gain amplitude.
+        # Re-threshold cached echo instantly; then read wand at this gain.
         self._apply_echo_leds()
 
-        if read_wand and usb_ok:
-            if not self._read_at_gain(quick=True):
+        if usb_ok:
+            if not self._read_at_gain(quick=not read_wand):
                 self._discard_cached_echo()
-                self._apply_echo_leds()
+                self._clear_leds()
 
         return self.state()
 
@@ -210,6 +210,7 @@ class ScanController:
         if self._state.locked:
             return self.state()
 
+        # Gain at 0 — dark screen; SEND alone does not display anything.
         if self._state.gain_index <= 0:
             self._clear_leds()
             return self.state()

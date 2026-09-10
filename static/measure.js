@@ -43,7 +43,11 @@ function fillCountFromGain(gainIndex) {
 function renderLeds(state, gainChanged) {
   const bar = $("#led-bar");
   if (!bar) return;
-  const mm = state.mm ?? state.live_mm ?? state.locked_mm;
+  const mm = state.locked
+    ? state.mm ?? state.locked_mm
+    : state.bracket
+      ? state.mm ?? state.live_mm
+      : null;
   const ledOn = state.led_on;
   const gainIdx = state.gain_index ?? 0;
   const gainFill = state.has_echo ? fillCountFromGain(gainIdx) : 0;
@@ -67,7 +71,11 @@ function renderLeds(state, gainChanged) {
 }
 
 function render(state, gainChanged = false) {
-  const mm = state.mm ?? state.live_mm ?? state.locked_mm;
+  const mm = state.locked
+    ? state.mm ?? state.locked_mm
+    : state.bracket
+      ? state.mm ?? state.live_mm
+      : null;
   const locked = !!state.locked;
   const gainIdx = state.gain_index ?? 0;
 

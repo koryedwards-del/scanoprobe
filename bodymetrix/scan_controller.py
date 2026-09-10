@@ -53,7 +53,7 @@ class ScanController:
         )
         reading = reading_from_led_on(self._state.led_on, self._state.gain)
         self._state.bracket = reading.bracket
-        self._state.live_mm = reading.mm
+        self._state.live_mm = reading.mm if reading.bracket else None
         self._state.message = reading_hint(reading)
 
     def _ingest_capture(self, payload: bytes, gain: int) -> bool:
@@ -72,7 +72,7 @@ class ScanController:
             return False
         self._state.led_on = reading.led_on
         self._state.bracket = reading.bracket
-        self._state.live_mm = reading.mm
+        self._state.live_mm = reading.mm if reading.bracket else None
         self._state.message = reading_hint(reading)
         return True
 

@@ -6,7 +6,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from bodymetrix.bvalgo import MM_PER_BIN, envelope_from_payload
+from bodymetrix.bvalgo import MM_PER_BIN, envelope_from_payload, find_first_peak_in_array
+from bodymetrix.mm_bounds import SKIN_THICKNESS_MM
 from bodymetrix.bodyview_parse import is_bodyview_bx_packet
 from bodymetrix.mm_bounds import is_plausible_mm
 from bodymetrix.scanoprobe import is_placeholder_payload
@@ -44,6 +45,8 @@ GAIN_STEPS: tuple[int, ...] = (
 DEFAULT_GAIN_INDEX = 0
 # Top gain steps fill all 50 LEDs (+ on dial); dialing − collapses to 3-LED bracket.
 FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 4
+# After bar is full, dial − in this gain range to collapse to 3 fat LEDs.
+BRACKET_TUNING_LOW = max(4, FULL_BAR_GAIN_INDEX - 12)
 EMPTY_LED_ON: tuple[bool, ...] = tuple([False] * LED_COUNT)
 
 
@@ -79,10 +82,10 @@ class ScaleReading:
 
 
 def bracket_mode_active(gain_index: int, peak_gain_index: int) -> bool:
-    """Bracket collapse only after the bar has filled (+ to top), then dial −."""
+    """Bracket collapse only after full bar, while dialing − in the tuning window."""
     return (
         peak_gain_index >= FULL_BAR_GAIN_INDEX
-        and gain_index < FULL_BAR_GAIN_INDEX
+        and BRACKET_TUNING_LOW <= gain_index < FULL_BAR_GAIN_INDEX
     )
 
 
@@ -100,22 +103,32 @@ def _progressive_fill_mask(gain_index: int) -> list[bool]:
     return on
 
 
+def _fascia_center_led(env: np.ndarray) -> int:
+    """
+    Fat–muscle fascia → LED (1–50).
+
+    First peak after skin (~3 mm) — not the deepest bin (noise at 30–40 mm).
+    """
+    skin_bin = int(round(SKIN_THICKNESS_MM / MM_PER_BIN))
+    baseline = float(np.median(env[:16]))
+    span = max(1.0, float(np.max(env)) - baseline)
+    threshold = baseline + 0.12 * span
+    fascia_bin = find_first_peak_in_array(env, skin_bin + 5, 500, threshold)
+    if fascia_bin is None:
+        return 0
+    led = _led_for_bin(fascia_bin)
+    return led if led is not None else 0
+
+
 def _envelope_bracket_mask(env: np.ndarray, gain_byte: int) -> list[bool]:
-    """Skin (1–3) + three fat LEDs around envelope fascia peak."""
+    """Skin (1–3) + three fat LEDs around fascia (first peak past skin)."""
     peak = float(np.max(env))
     if peak < 2.0:
         return [False] * LED_COUNT
 
     gain_frac = max(0.0, min(1.0, gain_byte / 255.0))
-    threshold = peak * (0.92 - 0.88 * gain_frac)
     skin_threshold = peak * (0.82 - 0.72 * gain_frac)
-
-    center = 0
-    for led in range(LED_COUNT, SKIN_LEDS, -1):
-        bin_idx = int(round(led / MM_PER_BIN))
-        if bin_idx < len(env) and float(env[bin_idx]) > threshold:
-            center = led
-            break
+    center = _fascia_center_led(env)
 
     on = [False] * LED_COUNT
     for led in range(1, SKIN_LEDS + 1):
@@ -197,7 +210,9 @@ def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
 
 
 def _bracket_mm(led_on: list[bool]) -> float | None:
-    """True mm = center of three fat-zone LEDs (e.g. 14–16 → 15)."""
+    """True mm = center of exactly three fat-zone LEDs (e.g. 14–16 → 15)."""
+    if _fat_leds_lit(led_on) != BRACKET_LEDS:
+        return None
     for start, end in reversed(_fat_zone_runs(led_on)):
         if end - start + 1 == BRACKET_LEDS:
             center = (start + end) / 2.0

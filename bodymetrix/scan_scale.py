@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from bodymetrix.bodyview_parse import header_byte3_mm, is_bodyview_bx_packet
-from bodymetrix.mm_bounds import MAX_PLAUSIBLE_MM, MIN_PLAUSIBLE_MM, is_plausible_mm
+from bodymetrix.bodyview_parse import (
+    bodyview_packet_to_mm,
+    header_byte3_mm,
+    is_bodyview_bx_packet,
+)
 from bodymetrix.scanoprobe import is_placeholder_payload
 
 LED_MAX_MM = 50
@@ -53,18 +56,37 @@ def index_for_gain(gain: int) -> int:
     return len(GAIN_STEPS) - 1
 
 
-def scale_mm_from_payload(payload: bytes) -> float | None:
+@dataclass(frozen=True)
+class ScaleReading:
+    mm: float
+    method: str
+
+
+def scale_reading_from_payload(payload: bytes) -> ScaleReading | None:
     """
-    LED scale mm — firmware byte 3 on BX packets (00 00 00 XX).
-    Gain moves which peak/threshold fires → different mm on the 0–50 bar.
+    LED scale mm from BX envelope (00 00 00 XX + waveform).
+
+    Byte 3 alone is not thickness — BVAlgo peak picking on bytes 4+ matches
+    BodyView. Gain shifts which peak fires on the 0–50 bar.
     """
     if is_placeholder_payload(payload):
         return None
-    if is_bodyview_bx_packet(payload):
+    if not is_bodyview_bx_packet(payload):
+        return None
+
+    try:
+        parsed = bodyview_packet_to_mm(payload)
+        return ScaleReading(round(parsed.thickness_mm, 1), parsed.method)
+    except ValueError:
         mm = header_byte3_mm(payload)
         if mm is not None:
-            return round(mm, 1)
+            return ScaleReading(round(mm, 1), "header-byte3-fallback")
     return None
+
+
+def scale_mm_from_payload(payload: bytes) -> float | None:
+    reading = scale_reading_from_payload(payload)
+    return reading.mm if reading else None
 
 
 def led_level(mm: float | None) -> int:

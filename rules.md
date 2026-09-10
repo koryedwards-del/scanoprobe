@@ -51,3 +51,14 @@ Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired)
 **On SEND:** wand sends ultrasound data to the Mac over USB. Communication works; **interpretation in software** is what we are fixing.
 
 ### Data flow (locked)
+
+```
+SEND held
+  → USB bulk packet (header 00 00 00 XX + envelope waveform)
+  → BVAlgo peak pick on bytes 4+ (not byte 3 alone)
+  → mm 0–50 on LED bar + LCD
+  → gain +/− tunes which peak fires
+  → HOLD locks mm
+```
+
+**Do not** use header byte 3 as mm — it is not the thickness (e.g. `04` → 4.0 mm is wrong). Thickness comes from envelope peak depth × 0.1 mm/bin via `bodyview_packet_to_mm`.

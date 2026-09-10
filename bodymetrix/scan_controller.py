@@ -8,7 +8,7 @@ from bodymetrix.scan_scale import (
     DEFAULT_GAIN_INDEX,
     GAIN_STEPS,
     ScanScaleState,
-    scale_mm_from_payload,
+    scale_reading_from_payload,
 )
 from bodymetrix.scanoprobe import is_placeholder_payload
 
@@ -94,10 +94,10 @@ class ScanController:
         if len(capture.payload) < 8:
             capture = probe._bodyview_button_read(hold_s=0.35)
 
-        mm = scale_mm_from_payload(capture.payload)
-        if mm is not None:
-            self._state.live_mm = mm
-            self._state.message = f"{mm:g} mm @ gain {gain}"
+        reading = scale_reading_from_payload(capture.payload)
+        if reading is not None:
+            self._state.live_mm = reading.mm
+            self._state.message = f"{reading.mm:g} mm @ gain {gain} ({reading.method})"
         elif is_placeholder_payload(capture.payload):
             self._state.message = "No signal — gel, skin, hold SEND (or unplug/replug)."
         else:

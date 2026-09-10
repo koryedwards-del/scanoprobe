@@ -76,6 +76,14 @@ def create_measure_app() -> Flask:
         except Exception as exc:  # noqa: BLE001
             return jsonify({"ok": False, "error": str(exc)}), 400
 
+    @app.post("/api/scan/clear")
+    def api_scan_clear() -> Any:
+        try:
+            state = scan.clear_reading()
+            return jsonify({"ok": True, **state})
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"ok": False, **scan.state(), "error": str(exc)}), 400
+
     @app.post("/api/scan/hold")
     def api_scan_hold() -> Any:
         try:

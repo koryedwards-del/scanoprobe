@@ -42,6 +42,7 @@
         <div class="gain-slider-wrap">
           <div class="gain-slider-label">
             <span>GAIN</span>
+            <button type="button" class="clear-btn" id="clear-btn" title="Clear for retest">CLEAR</button>
             <span>0 — 50</span>
           </div>
           <input
@@ -52,7 +53,7 @@
             max="50"
             value="0"
             step="1"
-            aria-label="Gain dial along depth bar"
+            aria-label="Gain dial along depth bar; double-tap knob to clear"
           />
         </div>
 
@@ -60,6 +61,6 @@
     </div>
   </div>
 
-  <script type="module" src="/static/measure.js?v=21"></script>
+  <script type="module" src="/static/measure.js?v=22"></script>
 </body>
 </html>

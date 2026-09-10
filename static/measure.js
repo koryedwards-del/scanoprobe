@@ -118,12 +118,27 @@ async function setGainSlider(sliderVal, readWand = false) {
   }
 }
 
+async function clearReading() {
+  stopPoll();
+  sliderDragging = false;
+  try {
+    render(await api("/api/scan/clear"));
+  } catch {
+    /* ignore */
+  }
+  startPoll();
+}
+
 function bindGainSlider() {
   const slider = $("#gain-slider");
   if (!slider) return;
 
+  let downVal = null;
+  let lastTapAt = 0;
+
   const onStart = () => {
     sliderDragging = true;
+    downVal = slider.value;
   };
 
   const onInput = () => {
@@ -132,7 +147,17 @@ function bindGainSlider() {
 
   const onEnd = async () => {
     if (!sliderDragging) return;
+    const tapped = downVal === slider.value;
     sliderDragging = false;
+    if (tapped) {
+      const now = Date.now();
+      if (now - lastTapAt < 450) {
+        lastTapAt = 0;
+        await clearReading();
+        return;
+      }
+      lastTapAt = now;
+    }
     await setGainSlider(slider.value, true);
   };
 
@@ -143,6 +168,8 @@ function bindGainSlider() {
   slider.addEventListener("pointercancel", () => {
     sliderDragging = false;
   });
+
+  $("#clear-btn")?.addEventListener("click", () => clearReading());
 }
 
 async function refreshProbe() {

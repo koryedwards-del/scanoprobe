@@ -138,6 +138,22 @@ class ScanController:
         self._state = ScanScaleState()
         return self.state()
 
+    def clear_reading(self) -> dict[str, Any]:
+        """Clear echo + bar for a retest; stay on the same site."""
+        if not self._state.active:
+            raise BodyMetrixError("Scan not active.")
+        self._discard_cached_echo()
+        self._state.locked = False
+        self._state.locked_mm = None
+        self._state.set_slider(0)
+        self._clear_leds()
+        if self._probe_usb_ready():
+            try:
+                self._probe.write_gain(0)
+            except Exception:
+                pass
+        return self.state()
+
     def adjust_gain(self, delta: int, read_wand: bool = False) -> dict[str, Any]:
         if not self._state.active:
             raise BodyMetrixError("Scan not active.")

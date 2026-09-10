@@ -363,21 +363,6 @@ body {
   text-transform: uppercase;
 }
 
-.status-message {
-  margin: 0.65rem 0 0;
-  font-size: 0.78rem;
-  color: #9ab;
-  line-height: 1.4;
-  min-height: 1.2em;
-}
-
-.workflow {
-  margin-top: 0.5rem;
-  font-size: 0.7rem;
-  color: #666;
-  line-height: 1.45;
-}
-
 .new-link {
   margin-top: 0.5rem;
   background: none;

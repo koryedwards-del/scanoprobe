@@ -6,7 +6,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from bodymetrix.bvalgo import MM_PER_BIN, envelope_from_payload
+from bodymetrix.bvalgo import (
+    MM_PER_BIN,
+    PEAK_SEARCH_START_BIN,
+    envelope_from_payload,
+    find_first_peak_in_array,
+    find_peaks,
+)
+from bodymetrix.mm_bounds import SKIN_THICKNESS_MM
 from bodymetrix.bodyview_parse import is_bodyview_bx_packet
 from bodymetrix.mm_bounds import is_plausible_mm
 from bodymetrix.scanoprobe import is_placeholder_payload
@@ -94,15 +101,65 @@ class ScaleReading:
     method: str
 
 
-def _bin_for_led(led: int) -> int:
-    return int(round(led / MM_PER_BIN))
+def _depth_anchor(env: np.ndarray) -> int:
+    """
+    Envelope bin for 0 mm depth — aligns LED 1–50 with real tissue depth.
+
+    Skin peak sits near LED 3 (~3 mm); fat/muscle fascia can land anywhere 3–50.
+    """
+    baseline = float(np.median(env[: max(16, len(env) // 32)]))
+    span = max(1.0, float(np.max(env) - baseline))
+    threshold = baseline + 0.12 * span
+    skin_bin = int(round(SKIN_THICKNESS_MM / MM_PER_BIN))
+    skin_idx = find_first_peak_in_array(
+        env,
+        PEAK_SEARCH_START_BIN,
+        min(len(env) - 2, skin_bin + 40),
+        threshold,
+    )
+    if skin_idx is not None:
+        return max(0, skin_idx - skin_bin)
+    peaks = find_peaks(env)
+    if peaks:
+        return max(0, peaks[0][0] - skin_bin)
+    return 0
 
 
-def _envelope_at_led(env: np.ndarray, led: int) -> float:
+def _bin_for_led(led: int, anchor: int = 0) -> int:
+    """LED position 1–50 mm → envelope bin (skin-anchored)."""
+    return anchor + int(round(led / MM_PER_BIN))
+
+
+def _led_for_bin(bin_idx: int, anchor: int) -> int:
+    """Envelope bin → LED position on the 1–50 mm bar."""
+    mm = (bin_idx - anchor) * MM_PER_BIN
+    return max(1, min(LED_COUNT, int(round(mm))))
+
+
+def _fm_muscle_bin(env: np.ndarray) -> int | None:
+    """Fat–muscle boundary bin from wand echo (BodyView peak search)."""
+    baseline = float(np.median(env[:16]))
+    span = max(1.0, float(np.max(env) - baseline))
+    threshold = baseline + 0.12 * span
+    skin_bin = int(round(SKIN_THICKNESS_MM / MM_PER_BIN))
+    anchor = _depth_anchor(env)
+    skin_idx = find_first_peak_in_array(
+        env,
+        PEAK_SEARCH_START_BIN,
+        min(len(env) - 2, anchor + skin_bin + 40),
+        threshold,
+    )
+    start = (skin_idx + 5) if skin_idx is not None else anchor + skin_bin + 5
+    return find_first_peak_in_array(env, start, len(env) - 2, threshold)
+
+
+def _envelope_at_led(env: np.ndarray, led: int, anchor: int | None = None) -> float:
     """Peak envelope near this depth LED (1–50 mm axis)."""
-    bin_idx = _bin_for_led(led)
-    lo = max(0, bin_idx - 2)
-    hi = min(len(env), bin_idx + 3)
+    if anchor is None:
+        anchor = _depth_anchor(env)
+    bin_idx = _bin_for_led(led, anchor)
+    lo = max(0, bin_idx - 4)
+    hi = min(len(env), bin_idx + 5)
     if lo >= hi:
         return 0.0
     return float(np.max(env[lo:hi]))
@@ -136,8 +193,9 @@ def _envelope_threshold_mask(
     if dial >= 0.98:
         return [True] * LED_COUNT
 
-    baseline = float(np.median(env[:16]))
-    peak = float(np.max(env))
+    anchor = _depth_anchor(env)
+    baseline = float(np.median(env[anchor : min(len(env), anchor + 16)]))
+    peak = float(np.max(env[anchor : min(len(env), anchor + 550)]))
     span = max(1.0, peak - baseline)
     floor = baseline + 0.05 * span
     threshold = peak - span * dial * 0.98
@@ -145,7 +203,7 @@ def _envelope_threshold_mask(
 
     on = [False] * LED_COUNT
     for led in range(1, LED_COUNT + 1):
-        if _envelope_at_led(env, led) > cut:
+        if _envelope_at_led(env, led, anchor) > cut:
             on[led - 1] = True
     return on
 

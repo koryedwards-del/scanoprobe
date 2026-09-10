@@ -63,13 +63,11 @@ class ScanController:
 
     def _apply_reading(self, reading) -> None:
         self._state.led_on = reading.led_on
-        self._state.bracket = reading.bracket
         self._state.live_mm = reading.mm
         self._state.message = reading_hint(reading)
 
     def _clear_leds(self) -> None:
         self._state.led_on = EMPTY_LED_ON
-        self._state.bracket = False
         self._state.live_mm = None
         self._state.message = ""
 
@@ -247,7 +245,7 @@ class ScanController:
         else:
             if self._state.live_mm is None:
                 raise BodyMetrixError(
-                    "No mm yet — tune gain until three fat LEDs show the fascia border."
+                    "No mm yet — tune gain until the fascia depth shows on the bar."
                 )
             self._state.locked = True
             self._state.locked_mm = self._state.live_mm

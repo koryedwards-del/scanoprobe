@@ -1,4 +1,4 @@
-"""Scanoprobe 0–50 LED scale — gain + echo threshold → LEDs; 3 fat LEDs → mm."""
+"""Scanoprobe 0–50 LED scale — gain + echo threshold → LEDs; LCD = depth."""
 
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ from bodymetrix.scanoprobe import is_placeholder_payload
 
 LED_COUNT = 50
 SKIN_LEDS = 3
-BRACKET_LEDS = 3
 
 # Internal wand gain bytes; UI slider is 0–50 (matches depth bar).
 GAIN_STEPS: tuple[int, ...] = tuple(range(0, 256, 2))
@@ -71,16 +70,6 @@ def rightmost_lit_led(led_on: tuple[bool, ...] | list[bool]) -> int:
     return 0
 
 
-def bracket_lcd(led_on: tuple[bool, ...] | list[bool], gain_index: int) -> int:
-    """LCD: center of 3 fat LEDs when bracketed, else rightmost lit."""
-    if gain_index <= 0 or not led_on or len(led_on) < LED_COUNT:
-        return 0
-    mm = _mm_from_gain_leds(list(led_on), gain_index)
-    if mm is not None:
-        return int(round(mm))
-    return rightmost_lit_led(led_on)
-
-
 def leds_for_slider(slider: int) -> tuple[bool, ...]:
     """Slider 0–50 → that many LEDs on (1..N). Far left 0, far right 50."""
     n = max(0, min(SLIDER_MAX, int(slider)))
@@ -92,12 +81,10 @@ def leds_for_slider(slider: int) -> tuple[bool, ...]:
 
 @dataclass(frozen=True)
 class ScaleReading:
-    """mm when gain + echo leave exactly three consecutive fat LEDs (ignore 1–3)."""
+    """Depth mm from rightmost lit LED (ignore skin LEDs 1–3)."""
 
     mm: float | None
     led_on: tuple[bool, ...]
-    bracket: bool
-    fat_leds_lit: int
     method: str
 
 
@@ -181,8 +168,7 @@ def _envelope_threshold_mask(
     """
     1982 gain on cached echo: each LED lights only where echo beats threshold.
 
-    No imposed bracket — gain up fills the bar; gain down peels LEDs off
-    naturally. Three fat LEDs remaining = fascia reading (ignore LEDs 1–3).
+    Gain up fills the bar; gain down peels LEDs off. Rightmost lit LED = depth mm.
     """
     if slider <= 0 or len(env) < 32:
         return [False] * LED_COUNT
@@ -223,42 +209,15 @@ def leds_for_echo(
     return tuple(_envelope_threshold_mask(env, gain_byte, gain_index, slider))
 
 
-def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
-    runs: list[tuple[int, int]] = []
-    start: int | None = None
-    for led in range(SKIN_LEDS + 1, LED_COUNT + 1):
-        if led_on[led - 1]:
-            if start is None:
-                start = led
-        elif start is not None:
-            runs.append((start, led - 1))
-            start = None
-    if start is not None:
-        runs.append((start, LED_COUNT))
-    return runs
-
-
-def _fat_leds_lit(led_on: list[bool]) -> int:
-    return sum(1 for i in range(SKIN_LEDS, LED_COUNT) if led_on[i])
-
-
-def _mm_from_gain_leds(led_on: list[bool], gain_index: int) -> float | None:
-    """
-    True mm when this gain leaves exactly three consecutive fat LEDs.
-
-    Not a separate mode — gain sets the threshold; three lit fat LEDs = reading.
-    Ignore skin LEDs 1–3.
-    """
+def _mm_from_leds(led_on: list[bool], gain_index: int) -> float | None:
+    """Depth mm = rightmost lit LED past skin (1–3)."""
     if gain_index <= 0:
         return None
-    if _fat_leds_lit(led_on) != BRACKET_LEDS:
+    led = rightmost_lit_led(led_on)
+    if led <= SKIN_LEDS:
         return None
-    for start, end in reversed(_fat_zone_runs(led_on)):
-        if end - start + 1 == BRACKET_LEDS and start > SKIN_LEDS:
-            mm = round((start + end) / 2.0, 1)
-            if is_plausible_mm(mm):
-                return mm
-    return None
+    mm = float(led)
+    return mm if is_plausible_mm(mm) else None
 
 
 def _reading_from_parts(
@@ -269,21 +228,19 @@ def _reading_from_parts(
 ) -> ScaleReading:
     if gain_index <= 0 or gain_byte <= 0:
         dark = tuple([False] * LED_COUNT)
-        return ScaleReading(None, dark, False, 0, "gain0")
+        return ScaleReading(None, dark, "gain0")
 
     led_list = list(led_on)
-    mm = _mm_from_gain_leds(led_list, gain_index)
-    fat_lit = _fat_leds_lit(led_list)
-    bracket = mm is not None
-    if bracket:
-        method = f"3led@{mm}g{gain_byte}"
+    mm = _mm_from_leds(led_list, gain_index)
+    if mm is not None:
+        method = f"depth@{mm:g}g{gain_byte}"
     elif env is not None and _bar_full(led_list, env, gain_byte):
         method = f"full-bar/g{gain_byte}"
-    elif fat_lit == 0:
+    elif sum(led_on) == 0:
         method = f"no-signal/g{gain_byte}"
     else:
         method = f"gain{gain_index}/lit{sum(led_on)}g{gain_byte}"
-    return ScaleReading(mm, led_on, bracket, fat_lit, method)
+    return ScaleReading(mm, led_on, method)
 
 
 def reading_from_led_on(
@@ -313,7 +270,7 @@ def scale_reading_from_payload(
     slider: int = 0,
 ) -> ScaleReading | None:
     """
-    Wand packet at this gain → echo threshold → LEDs → mm when three fat LEDs.
+    Wand packet at this gain → echo threshold → LEDs → depth mm.
 
     gain_byte is sent to the wand before read; it shapes echo amplitude.
     """
@@ -348,7 +305,7 @@ def reading_hint(reading: ScaleReading) -> str:
     if reading.mm is not None:
         return f"{reading.mm:g} mm — HOLD to lock"
     if sum(reading.led_on) >= LED_COUNT - 2:
-        return "Bar full — dial − until three fat LEDs remain"
+        return "Bar full — slide gain down to fascia"
     if sum(reading.led_on) == 0:
         return "Slider left — no LEDs. Slide right to light the bar."
     lit = sum(reading.led_on)
@@ -365,7 +322,6 @@ class ScanScaleState:
     locked_mm: float | None = None
     live_mm: float | None = None
     led_on: tuple[bool, ...] = ()
-    bracket: bool = False
     message: str = ""
 
     @property
@@ -391,12 +347,11 @@ class ScanScaleState:
             "slider_max": SLIDER_MAX,
             "gain_steps": len(GAIN_STEPS),
             "locked": self.locked,
-            "bracket": self.bracket,
             "mm": mm,
             "live_mm": self.live_mm,
             "locked_mm": self.locked_mm,
             "led_on": list(self.led_on) if len(self.led_on) >= LED_COUNT else list(EMPTY_LED_ON),
-            "lcd": bracket_lcd(self.led_on, self.gain_index),
+            "lcd": rightmost_lit_led(self.led_on),
             "led_level": led_level(mm),
             "led_max": LED_COUNT,
             "message": self.message,

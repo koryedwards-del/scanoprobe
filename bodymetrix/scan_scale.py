@@ -77,12 +77,30 @@ class ScaleReading:
     method: str
 
 
-def _led_mask(env: np.ndarray, gain_byte: int, gain_index: int) -> list[bool]:
-    """
-    Gain + fills the bar; gain − collapses to skin (1–3) + three fat LEDs.
+def bracket_mode_active(gain_index: int, peak_gain_index: int) -> bool:
+    """Bracket collapse only after the bar has filled (+ to top), then dial −."""
+    return (
+        peak_gain_index >= FULL_BAR_GAIN_INDEX
+        and gain_index < FULL_BAR_GAIN_INDEX
+    )
 
-    Wand gain byte shapes the packet; gain_index drives screen threshold.
-    """
+
+def _progressive_fill_mask(gain_index: int) -> list[bool]:
+    """Gain + fills LEDs 1..N until the bar is full at FULL_BAR_GAIN_INDEX."""
+    if gain_index >= FULL_BAR_GAIN_INDEX:
+        return [True] * LED_COUNT
+    fill_to = min(
+        LED_COUNT,
+        max(0, int(round((gain_index / FULL_BAR_GAIN_INDEX) * LED_COUNT))),
+    )
+    on = [False] * LED_COUNT
+    for led in range(1, fill_to + 1):
+        on[led - 1] = True
+    return on
+
+
+def _envelope_bracket_mask(env: np.ndarray, gain_byte: int) -> list[bool]:
+    """Skin (1–3) + three fat LEDs around envelope fascia peak."""
     peak = float(np.max(env))
     if peak < 2.0:
         return [False] * LED_COUNT
@@ -90,9 +108,6 @@ def _led_mask(env: np.ndarray, gain_byte: int, gain_index: int) -> list[bool]:
     gain_frac = max(0.0, min(1.0, gain_byte / 255.0))
     threshold = peak * (0.92 - 0.88 * gain_frac)
     skin_threshold = peak * (0.82 - 0.72 * gain_frac)
-
-    if gain_index >= FULL_BAR_GAIN_INDEX:
-        return [True] * LED_COUNT
 
     center = 0
     for led in range(LED_COUNT, SKIN_LEDS, -1):
@@ -107,17 +122,47 @@ def _led_mask(env: np.ndarray, gain_byte: int, gain_index: int) -> list[bool]:
         if bin_idx < len(env) and float(env[bin_idx]) > skin_threshold:
             on[led - 1] = True
 
-    if center >= SKIN_LEDS + BRACKET_LEDS - 1:
+    if center >= SKIN_LEDS + 1:
         for led in range(center - 1, center + 2):
             if 1 <= led <= LED_COUNT:
                 on[led - 1] = True
-    elif gain_index > 0:
-        # Raising gain before fascia peak appears — bar fills progressively.
-        fill_to = max(SKIN_LEDS, int((gain_index / FULL_BAR_GAIN_INDEX) * LED_COUNT))
-        for led in range(1, fill_to + 1):
-            on[led - 1] = True
-
     return on
+
+
+def _led_mask(
+    env: np.ndarray,
+    gain_byte: int,
+    gain_index: int,
+    bracket_mode: bool,
+) -> list[bool]:
+    """
+    Gain + always grows the bar (progressive fill).
+
+    After the bar has filled once, dialing − collapses to a 3-LED fascia bracket.
+    """
+    if gain_index >= FULL_BAR_GAIN_INDEX:
+        return [True] * LED_COUNT
+    if not bracket_mode:
+        return _progressive_fill_mask(gain_index)
+    mask = _envelope_bracket_mask(env, gain_byte)
+    if sum(mask) == 0:
+        return _progressive_fill_mask(gain_index)
+    return mask
+
+
+def led_mask_for_gain(
+    gain_index: int,
+    peak_gain_index: int,
+    env: np.ndarray | None = None,
+    gain_byte: int = 0,
+) -> tuple[bool, ...]:
+    """LED pattern from gain alone (used when USB read fails)."""
+    bracket_mode = bracket_mode_active(gain_index, peak_gain_index)
+    if env is not None and len(env) > 0:
+        return tuple(
+            _led_mask(env, gain_byte, gain_index, bracket_mode)
+        )
+    return tuple(_progressive_fill_mask(gain_index))
 
 
 def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
@@ -151,7 +196,10 @@ def _fat_leds_lit(led_on: list[bool]) -> int:
 
 
 def scale_reading_from_payload(
-    payload: bytes, gain_byte: int = 0, gain_index: int = DEFAULT_GAIN_INDEX
+    payload: bytes,
+    gain_byte: int = 0,
+    gain_index: int = DEFAULT_GAIN_INDEX,
+    peak_gain_index: int = DEFAULT_GAIN_INDEX,
 ) -> ScaleReading | None:
     """
     Wand packet at this gain → LED pattern.
@@ -169,7 +217,8 @@ def scale_reading_from_payload(
     except ValueError:
         return None
 
-    led_on = _led_mask(env, gain_byte, gain_index)
+    bracket_mode = bracket_mode_active(gain_index, peak_gain_index)
+    led_on = _led_mask(env, gain_byte, gain_index, bracket_mode)
     mm = _bracket_mm(led_on)
     fat_lit = _fat_leds_lit(led_on)
     bracket = mm is not None
@@ -187,9 +236,14 @@ def scale_reading_from_payload(
 
 
 def scale_mm_from_payload(
-    payload: bytes, gain_byte: int = 0, gain_index: int = DEFAULT_GAIN_INDEX
+    payload: bytes,
+    gain_byte: int = 0,
+    gain_index: int = DEFAULT_GAIN_INDEX,
+    peak_gain_index: int = DEFAULT_GAIN_INDEX,
 ) -> float | None:
-    reading = scale_reading_from_payload(payload, gain_byte, gain_index)
+    reading = scale_reading_from_payload(
+        payload, gain_byte, gain_index, peak_gain_index
+    )
     return reading.mm if reading else None
 
 
@@ -214,6 +268,7 @@ class ScanScaleState:
     active: bool = False
     site: int | None = None
     gain_index: int = DEFAULT_GAIN_INDEX
+    peak_gain_index: int = DEFAULT_GAIN_INDEX
     locked: bool = False
     locked_mm: float | None = None
     live_mm: float | None = None

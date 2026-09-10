@@ -8,6 +8,7 @@ from bodymetrix.scan_scale import (
     DEFAULT_GAIN_INDEX,
     GAIN_STEPS,
     ScanScaleState,
+    led_mask_for_gain,
     reading_hint,
     scale_reading_from_payload,
 )
@@ -59,6 +60,9 @@ class ScanController:
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
         self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
+        self._state.peak_gain_index = max(
+            self._state.peak_gain_index, self._state.gain_index
+        )
         return self.tick()
 
     def toggle_hold(self) -> dict[str, Any]:
@@ -100,19 +104,24 @@ class ScanController:
             capture.payload,
             gain_byte=gain,
             gain_index=self._state.gain_index,
+            peak_gain_index=self._state.peak_gain_index,
         )
         if reading is not None:
             self._state.led_on = reading.led_on
             self._state.bracket = reading.bracket
             self._state.live_mm = reading.mm
             self._state.message = reading_hint(reading)
-        elif is_placeholder_payload(capture.payload):
-            self._state.bracket = False
-            self._state.live_mm = None
-            self._state.message = "No signal — gel, skin, hold SEND (or unplug/replug)."
         else:
+            self._state.led_on = led_mask_for_gain(
+                self._state.gain_index,
+                self._state.peak_gain_index,
+                gain_byte=gain,
+            )
             self._state.bracket = False
             self._state.live_mm = None
-            self._state.message = "Dial + gain — wand needs gain for true mm"
+            if is_placeholder_payload(capture.payload):
+                self._state.message = "No signal — gel, skin, hold SEND (or unplug/replug)."
+            else:
+                self._state.message = "Dial + gain — wand needs gain for true mm"
 
         return self._state.to_dict()

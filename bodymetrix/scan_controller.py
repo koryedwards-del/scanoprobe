@@ -12,6 +12,8 @@ from bodymetrix.scan_scale import (
     EMPTY_LED_ON,
     GAIN_STEPS,
     ScanScaleState,
+    leds_for_echo,
+    reading_from_led_on,
     reading_hint,
     scale_reading_from_payload,
 )
@@ -63,6 +65,19 @@ class ScanController:
         self._state.bracket = False
         self._state.live_mm = None
         self._state.message = message
+
+    def _apply_cached_leds(self) -> None:
+        """Instant dial feedback — re-threshold last echo at the new gain byte."""
+        if self._state.gain_index <= 0 or self._last_env is None:
+            return
+        led_on = leds_for_echo(
+            self._last_env,
+            self._state.gain,
+            self._state.gain_index,
+        )
+        self._apply_reading(
+            reading_from_led_on(led_on, self._state.gain, self._state.gain_index)
+        )
 
     def _capture_at_gain(self, quick: bool = False) -> bytes:
         gain = self._state.gain
@@ -118,16 +133,16 @@ class ScanController:
         self._state = ScanScaleState()
         return self.state()
 
-    def adjust_gain(self, delta: int) -> dict[str, Any]:
+    def adjust_gain(self, delta: int, read_wand: bool = False) -> dict[str, Any]:
         if not self._state.active:
             raise BodyMetrixError("Scan not active.")
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
         idx = self._state.gain_index + int(delta)
-        return self.set_gain_index(idx)
+        return self.set_gain_index(idx, read_wand=read_wand)
 
-    def set_gain_index(self, index: int) -> dict[str, Any]:
-        """Write gain to wand, read echo at that gain, update LEDs."""
+    def set_gain_index(self, index: int, read_wand: bool = False) -> dict[str, Any]:
+        """Dial gain — instant LED update; optional wand read when dial stops."""
         if not self._state.active:
             raise BodyMetrixError("Scan not active.")
         if self._state.locked:
@@ -135,10 +150,8 @@ class ScanController:
 
         self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
         if self._state.gain_index <= 0:
-            self._state.led_on = EMPTY_LED_ON
-            self._state.bracket = False
-            self._state.live_mm = None
-            self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
+            self._discard_cached_echo()
+            self._clear_live("Gain 0 — no LEDs. Press + with SEND held.")
             if self._probe_usb_ready():
                 try:
                     self._probe.write_gain(0)
@@ -153,10 +166,17 @@ class ScanController:
             except Exception:
                 usb_ok = False
 
-        if not usb_ok or not self._read_at_gain(quick=True):
-            self._discard_cached_echo()
+        refreshed = False
+        if read_wand and usb_ok:
+            refreshed = self._read_at_gain(quick=True)
+
+        if refreshed:
+            pass
+        elif self._last_env is not None:
+            self._apply_cached_leds()
+        else:
             self._clear_live(
-                f"GAIN {self._state.gain_index} — hold SEND on gel at new site."
+                f"GAIN {self._state.gain} — hold SEND on gel."
             )
 
         return self.state()

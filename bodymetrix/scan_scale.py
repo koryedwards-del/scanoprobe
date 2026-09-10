@@ -15,34 +15,10 @@ LED_COUNT = 50
 SKIN_LEDS = 3
 BRACKET_LEDS = 3
 
-GAIN_STEPS: tuple[int, ...] = (
-    0,
-    8,
-    16,
-    24,
-    32,
-    40,
-    48,
-    56,
-    64,
-    72,
-    80,
-    88,
-    96,
-    104,
-    112,
-    128,
-    144,
-    160,
-    176,
-    192,
-    208,
-    224,
-    240,
-    255,
-)
+# Fine dial: 128 steps (0, 2, 4, … 254) — like turning the 1982 gain knob.
+GAIN_STEPS: tuple[int, ...] = tuple(range(0, 256, 2))
 DEFAULT_GAIN_INDEX = 0
-FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 4
+FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 12
 EMPTY_LED_ON: tuple[bool, ...] = tuple([False] * LED_COUNT)
 
 
@@ -85,17 +61,15 @@ def _threshold_for_gain(env: np.ndarray, gain_index: int, gain_byte: int) -> flo
     """
     Higher gain → lower threshold → more LEDs appear where echo is strong.
 
-    Gain 0 is above peak (dark). Each + step lowers threshold through the echo.
+    Smooth mapping on the wand gain byte (0–255) so each dial step is small.
     """
     peak = float(np.max(env))
     if gain_index <= 0 or gain_byte <= 0:
         return peak + 1.0
     baseline = float(np.median(env[:16]))
     span = max(1.0, peak - baseline)
-    step = min(1.0, gain_index / float(FULL_BAR_GAIN_INDEX))
-    threshold = peak - span * step * 0.98
-    byte_nudge = (gain_byte / 255.0) * 0.04 * span
-    return threshold - byte_nudge
+    dial = min(1.0, gain_byte / 255.0)
+    return baseline + span * (1.0 - dial) * 0.98
 
 
 def _envelope_threshold_mask(

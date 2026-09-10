@@ -2,6 +2,7 @@
 
 let pollTimer = null;
 let lastGainIndex = 0;
+let maxGainIndex = 127;
 let gainRepeatTimer = null;
 let gainBusy = false;
 
@@ -65,9 +66,14 @@ function render(state, gainChanged = false) {
     : state.live_mm ?? (state.bracket ? state.mm : null);
   const locked = !!state.locked;
   const gainIdx = state.gain_index ?? 0;
+  const gainByte = state.gain ?? 0;
+
+  if (state.gain_steps != null) {
+    maxGainIndex = Math.max(0, state.gain_steps - 1);
+  }
 
   $("#mm").textContent = formatMm(mm);
-  $("#gain-label").textContent = `GAIN ${gainIdx}`;
+  $("#gain-label").textContent = `GAIN ${gainByte}`;
   $("#device").classList.toggle("locked", locked);
 
   const holdBtn = $("#hold");
@@ -109,19 +115,18 @@ function startPoll() {
   }, 700);
 }
 
-async function nudgeGain(delta) {
+async function nudgeGain(delta, readWand = false) {
   if (gainBusy) return;
   gainBusy = true;
   const prev = lastGainIndex;
-  const nextIdx = Math.max(0, Math.min(23, prev + delta));
-  $("#gain-label").textContent = `GAIN ${nextIdx}`;
+  const nextIdx = Math.max(0, Math.min(maxGainIndex, prev + delta));
   try {
-    const state = await api("/api/scan/gain", { delta });
+    const body = readWand ? { delta, read: true } : { delta };
+    const state = await api("/api/scan/gain", body);
     render(state, state.gain_index !== prev);
   } catch (err) {
     const status = $("#status-message");
     if (status) status.textContent = err.message || "Gain failed";
-    $("#gain-label").textContent = `GAIN ${prev}`;
   } finally {
     gainBusy = false;
   }
@@ -137,16 +142,29 @@ function stopGainRepeat() {
 function startGainRepeat(delta) {
   stopPoll();
   stopGainRepeat();
-  nudgeGain(delta).catch((err) => {
+  nudgeGain(delta, false).catch((err) => {
     const status = $("#status-message");
     if (status) status.textContent = err.message || "Gain failed";
   });
   gainRepeatTimer = setInterval(() => {
-    nudgeGain(delta).catch((err) => {
+    nudgeGain(delta, false).catch((err) => {
       const status = $("#status-message");
       if (status) status.textContent = err.message || "Gain failed";
     });
-  }, 600);
+  }, 200);
+}
+
+async function finishGainDial() {
+  try {
+    const state = await api("/api/scan/gain", { delta: 0, read: true });
+    render(state, true);
+  } catch {
+    try {
+      render(await api("/api/scan/tick"), true);
+    } catch {
+      /* SEND not held */
+    }
+  }
 }
 
 function bindGainButton(btn, delta) {
@@ -159,12 +177,14 @@ function bindGainButton(btn, delta) {
     holding = true;
     startGainRepeat(delta);
   };
-  const onUp = () => {
+  const onUp = async () => {
     if (!holding) return;
     holding = false;
     stopGainRepeat();
-    if (!$("#new-btn")?.classList.contains("hidden")) return;
-    startPoll();
+    if ($("#new-btn")?.classList.contains("hidden")) {
+      await finishGainDial();
+      startPoll();
+    }
   };
 
   btn.addEventListener("pointerdown", onDown);
@@ -209,10 +229,10 @@ async function init() {
     if (!$("#new-btn")?.classList.contains("hidden")) return;
     if (e.key === "-" || e.key === "_") {
       e.preventDefault();
-      nudgeGain(-1);
+      nudgeGain(-1, true);
     } else if (e.key === "=" || e.key === "+") {
       e.preventDefault();
-      nudgeGain(1);
+      nudgeGain(1, true);
     }
   });
 

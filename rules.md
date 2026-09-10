@@ -79,7 +79,9 @@ SEND held
   → HOLD locks mm
 ```
 
-**Do not** use header byte 3 as mm — it is not the thickness (e.g. `04` → 4.0 mm is wrong). Thickness comes from envelope peak depth × 0.1 mm/bin via `bodyview_packet_to_mm`.
+**Do not** use header byte 3 as mm — it is not the thickness (e.g. `04` → 4.0 mm is wrong).
+
+**Fat mm (locked):** assume **3 mm skin**, find **fat/muscle fascia** peak on envelope (bytes 4+, 0.1 mm/bin), **fat = fascia depth − 3 mm**. Example: fascia at 20 mm → **17 mm fat**.
 
 ---
 

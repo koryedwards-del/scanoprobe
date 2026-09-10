@@ -4,12 +4,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
+from bodymetrix.bvalgo import MM_PER_BIN, envelope_from_payload
 from bodymetrix.bodyview_parse import (
     bodyview_packet_to_mm,
     header_byte3_mm,
     is_bodyview_bx_packet,
 )
+from bodymetrix.mm_bounds import (
+    MAX_PLAUSIBLE_MM,
+    SKIN_THICKNESS_MM,
+    is_plausible_mm,
+)
 from bodymetrix.scanoprobe import is_placeholder_payload
+
+# Fascia search: absolute depth on envelope axis (0.1 mm/bin after header).
+# Skip coupling/skin echo below ~8 mm; fat = fascia depth − assumed 3 mm skin.
+FASCIA_SEARCH_MIN_MM = SKIN_THICKNESS_MM + 5.0
+FASCIA_SEARCH_MAX_MM = SKIN_THICKNESS_MM + MAX_PLAUSIBLE_MM
 
 LED_MAX_MM = 50
 LED_COUNT = 50
@@ -62,6 +75,67 @@ class ScaleReading:
     method: str
 
 
+def _fascia_peak_bin(env: np.ndarray) -> int | None:
+    """Strongest fascia peak in depth window (fat/muscle boundary)."""
+    min_bin = int(round(FASCIA_SEARCH_MIN_MM / MM_PER_BIN))
+    max_bin = min(len(env) - 2, int(round(FASCIA_SEARCH_MAX_MM / MM_PER_BIN)))
+    if min_bin >= max_bin:
+        return None
+
+    baseline = float(np.median(env[:16]))
+    span = max(1.0, float(np.max(env) - baseline))
+    threshold = baseline + 0.12 * span
+
+    best_bin: int | None = None
+    best_amp = 0.0
+    for i in range(min_bin, max_bin):
+        amp = float(env[i])
+        if amp < threshold:
+            continue
+        if amp >= env[i - 1] and amp >= env[i + 1] and amp > best_amp:
+            best_amp = amp
+            best_bin = i
+
+    if best_bin is not None:
+        return best_bin
+
+    window = env[min_bin:max_bin]
+    if len(window) == 0:
+        return None
+    peak = int(np.argmax(window))
+    if float(window[peak]) <= threshold:
+        return None
+    return min_bin + peak
+
+
+def fat_thickness_assumed_skin(payload: bytes) -> ScaleReading | None:
+    """
+    Scanoprobe fat mm: fixed 3 mm skin, fascia peak depth − skin.
+
+    Matches operator model — 17 mm fat = fascia at ~20 mm absolute on envelope.
+    """
+    if not is_bodyview_bx_packet(payload):
+        return None
+    try:
+        env = envelope_from_payload(payload)
+    except ValueError:
+        return None
+
+    fascia_bin = _fascia_peak_bin(env)
+    if fascia_bin is None:
+        return None
+
+    fascia_mm = fascia_bin * MM_PER_BIN
+    fat_mm = round(fascia_mm - SKIN_THICKNESS_MM, 1)
+    if not is_plausible_mm(fat_mm):
+        return None
+
+    return ScaleReading(
+        fat_mm,
+        f"fascia-skin3@{fascia_bin}x{MM_PER_BIN}",
+    )
+
+
 def scale_reading_from_payload(payload: bytes) -> ScaleReading | None:
     """
     LED scale mm from BX envelope (00 00 00 XX + waveform).
@@ -73,6 +147,10 @@ def scale_reading_from_payload(payload: bytes) -> ScaleReading | None:
         return None
     if not is_bodyview_bx_packet(payload):
         return None
+
+    fascia = fat_thickness_assumed_skin(payload)
+    if fascia is not None:
+        return fascia
 
     try:
         parsed = bodyview_packet_to_mm(payload)

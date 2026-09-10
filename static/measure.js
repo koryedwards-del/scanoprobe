@@ -1,10 +1,12 @@
-/** Scanoprobe — subcutaneous mm (gain 0, full LED bar, bracket tune, HOLD). */
+/** Scanoprobe — subcutaneous mm (gain slider, LED bar, HOLD). */
 
 let pollTimer = null;
 let lastGainIndex = 0;
 let maxGainIndex = 127;
 let gainRepeatTimer = null;
 let gainBusy = false;
+let sliderDragging = false;
+let sliderTimer = null;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -60,12 +62,21 @@ function renderLeds(state, gainChanged) {
   });
 }
 
+function syncGainSlider(state, locked) {
+  const slider = $("#gain-slider");
+  if (!slider || sliderDragging) return;
+  if (state.gain_steps != null) {
+    slider.max = String(Math.max(0, state.gain_steps - 1));
+  }
+  slider.value = String(state.gain_index ?? 0);
+  slider.disabled = locked;
+}
+
 function render(state, gainChanged = false) {
   const mm = state.locked
     ? state.mm ?? state.locked_mm
     : state.live_mm ?? (state.bracket ? state.mm : null);
   const locked = !!state.locked;
-  const gainIdx = state.gain_index ?? 0;
   const gainByte = state.gain ?? 0;
 
   if (state.gain_steps != null) {
@@ -81,6 +92,7 @@ function render(state, gainChanged = false) {
   holdBtn.disabled = false;
   $("#gain-down").disabled = locked;
   $("#gain-up").disabled = locked;
+  syncGainSlider(state, locked);
 
   const liveWrap = $("#live-wrap");
   if (liveWrap && !locked) {
@@ -115,13 +127,13 @@ function startPoll() {
   }, 700);
 }
 
-async function nudgeGain(delta, readWand = false) {
+async function setGainIndex(index, readWand = false) {
   if (gainBusy) return;
   gainBusy = true;
   const prev = lastGainIndex;
-  const nextIdx = Math.max(0, Math.min(maxGainIndex, prev + delta));
+  const idx = Math.max(0, Math.min(maxGainIndex, parseInt(index, 10)));
   try {
-    const body = readWand ? { delta, read: true } : { delta };
+    const body = readWand ? { index: idx, read: true } : { index: idx };
     const state = await api("/api/scan/gain", body);
     render(state, state.gain_index !== prev);
   } catch (err) {
@@ -130,6 +142,10 @@ async function nudgeGain(delta, readWand = false) {
   } finally {
     gainBusy = false;
   }
+}
+
+async function nudgeGain(delta, readWand = false) {
+  await setGainIndex(lastGainIndex + delta, readWand);
 }
 
 function stopGainRepeat() {
@@ -156,8 +172,7 @@ function startGainRepeat(delta) {
 
 async function finishGainDial() {
   try {
-    const state = await api("/api/scan/gain", { delta: 0, read: true });
-    render(state, true);
+    await setGainIndex(lastGainIndex, true);
   } catch {
     try {
       render(await api("/api/scan/tick"), true);
@@ -193,6 +208,43 @@ function bindGainButton(btn, delta) {
   btn.addEventListener("pointercancel", onUp);
 }
 
+function bindGainSlider() {
+  const slider = $("#gain-slider");
+  if (!slider) return;
+
+  const onStart = () => {
+    sliderDragging = true;
+    stopPoll();
+    stopGainRepeat();
+  };
+
+  const onInput = () => {
+    if (slider.disabled) return;
+    if (sliderTimer) clearTimeout(sliderTimer);
+    sliderTimer = setTimeout(() => {
+      setGainIndex(slider.value, false);
+    }, 40);
+  };
+
+  const onEnd = async () => {
+    if (!sliderDragging) return;
+    sliderDragging = false;
+    if (sliderTimer) clearTimeout(sliderTimer);
+    if (slider.disabled) return;
+    await setGainIndex(slider.value, true);
+    if (!$("#new-btn")?.classList.contains("hidden")) return;
+    startPoll();
+  };
+
+  slider.addEventListener("pointerdown", onStart);
+  slider.addEventListener("input", onInput);
+  slider.addEventListener("change", onEnd);
+  slider.addEventListener("pointerup", onEnd);
+  slider.addEventListener("pointercancel", () => {
+    sliderDragging = false;
+  });
+}
+
 async function refreshProbe() {
   const el = $("#probe-status");
   try {
@@ -211,6 +263,7 @@ async function beginSession() {
   $("#new-btn")?.classList.add("hidden");
   stopPoll();
   stopGainRepeat();
+  sliderDragging = false;
   lastGainIndex = 0;
   const state = await api("/api/scan/begin");
   render(state);
@@ -222,6 +275,7 @@ async function init() {
   await refreshProbe();
   await beginSession();
 
+  bindGainSlider();
   bindGainButton($("#gain-down"), -1);
   bindGainButton($("#gain-up"), 1);
 

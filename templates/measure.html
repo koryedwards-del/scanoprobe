@@ -39,6 +39,23 @@
           <div class="depth-label">DEPTH (mm)</div>
         </div>
 
+        <div class="gain-slider-wrap">
+          <div class="gain-slider-label">
+            <span>GAIN</span>
+            <span>0 — 254</span>
+          </div>
+          <input
+            type="range"
+            id="gain-slider"
+            class="gain-slider"
+            min="0"
+            max="127"
+            value="0"
+            step="1"
+            aria-label="Gain dial"
+          />
+        </div>
+
         <div class="button-row">
           <div class="btn-wrap">
             <button type="button" class="rubber-btn" id="gain-down" aria-label="Gain down">−</button>
@@ -63,6 +80,6 @@
     <button type="button" class="new-link hidden" id="new-btn">New measurement</button>
   </div>
 
-  <script type="module" src="/static/measure.js?v=10"></script>
+  <script type="module" src="/static/measure.js?v=11"></script>
 </body>
 </html>

@@ -96,7 +96,7 @@ function startPoll() {
 }
 
 async function setGainSlider(sliderVal, readWand = false) {
-  if (gainBusy) return;
+  if (gainBusy && readWand) return;
   gainBusy = true;
   const prev = lastSlider;
   const val = Math.max(0, Math.min(SLIDER_MAX, parseInt(sliderVal, 10)));

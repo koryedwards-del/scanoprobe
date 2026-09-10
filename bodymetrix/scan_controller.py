@@ -169,14 +169,10 @@ class ScanController:
             except Exception:
                 usb_ok = False
 
-        # Re-threshold cached echo instantly; then read wand at this gain.
+        # Re-threshold cached echo at new gain; read wand when asked or no cache yet.
+        if usb_ok and (read_wand or self._last_env is None):
+            self._read_at_gain(quick=True)
         self._apply_echo_leds()
-
-        if usb_ok:
-            if not self._read_at_gain(quick=not read_wand):
-                self._discard_cached_echo()
-                self._clear_leds()
-
         return self.state()
 
     def set_gain_index(self, index: int, read_wand: bool = False) -> dict[str, Any]:
@@ -216,12 +212,10 @@ class ScanController:
             return self.state()
 
         if not self._probe_usb_ready():
-            self._discard_cached_echo()
-            self._clear_leds()
+            self._apply_echo_leds()
             return self.state()
 
-        if not self._read_at_gain(quick=False):
-            self._discard_cached_echo()
-            self._clear_leds()
-
+        # Best-effort refresh; keep last good echo if SEND drops briefly.
+        self._read_at_gain(quick=False)
+        self._apply_echo_leds()
         return self.state()

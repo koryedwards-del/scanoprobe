@@ -20,6 +20,8 @@ cd ~/scanoprobe
 
 Never run `.venv/bin/python …` from `~` (home) — that folder has no `.venv`.
 
+**USB driver error:** run `./fix-usb.sh` from `~/scanoprobe`, then try again.
+
 ---
 
 ## How we work

@@ -133,7 +133,7 @@ def _get_usb_backend() -> Any:
                     return backend
 
     raise BodyMetrixError(
-        "USB driver missing. In Terminal run: cd ~/Desktop/scanoprobe && ./fix-usb.sh"
+        "USB driver missing. In Terminal run: cd ~/scanoprobe && ./fix-usb.sh"
     )
 
 
@@ -148,7 +148,7 @@ def _usb_error_message(exc: Exception) -> str:
     if "No backend available" in text:
         return (
             "USB driver missing. In Terminal run: "
-            "cd ~/Desktop/scanoprobe && ./install.sh then restart the app."
+            "cd ~/scanoprobe && ./install.sh then restart the app."
         )
     return f"USB scan failed: {text}"
 

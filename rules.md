@@ -6,6 +6,18 @@ Lock-in doc. Verified on Kory's iMac, Sep 2026.
 
 ---
 
+## What we're building
+
+| | |
+|--|--|
+| **Hardware (what Kory has)** | **BodyMetrix BX 2000** wand — USB, **SEND** button |
+| **Screen (what we're recreating)** | **1982 Scanoprobe** — 0–50 LED bar, gain +/−, bracket tune, HOLD lock |
+| **Not the goal** | **BodyView** — expired; worse workflow; USB/protocol reference only |
+
+The BX wand supplies the echo bytes. The Mac app supplies the **1982-style** measurement UI and decode — because that system worked better than BodyView.
+
+---
+
 ## On Kory's Mac
 
 **Project folder:** `~/scanoprobe` (home folder — **not** Desktop)
@@ -59,10 +71,10 @@ Never run `.venv/bin/python …` from `~` (home) — that folder has no `.venv`.
 **Physical controls (BX 2000 — Kory's wand today):**
 - **One side button** (thumb) = **SEND** (triggers USB echo burst)
 
-**1982 Scanoprobe (original — what the LED workflow copies):**
-- **Simple transducer** — **no SEND button**, no LCD, no LED bar on the unit
-- **No LEDs without gain** — contact on skin + turn gain up until the bar fills; gain down to bracket; then read mm
-- Our **Mac screen** reproduces that gain/LED/mm workflow; the **BX wand** adds SEND because USB needs a trigger
+**1982 Scanoprobe (screen we're recreating on the Mac):**
+- **Simple transducer** — **no SEND button** on the original; no LED bar on the unit (that was on the 1982 **display**)
+- **No LEDs without gain** — skin contact + gain up fills the bar; gain down brackets to three fat LEDs; center = mm
+- **BX 2000** is only the probe input; **SEND** is BX USB trigger, not part of the 1982 UI
 
 **NOT on the BX wand (software only):**
 - No LCD, no mm readout, no 0–50 LED bar, no gain +/−, no hold switch, no view toggle
@@ -112,6 +124,6 @@ SEND held + gel
 | USB + tick loop | Working |
 | mm decode | Not accurate — needs capture + validate against research |
 
-**BodyView:** expired, reference only. **B&B:** retired.
+**BodyView:** expired — do not copy its mm/UX; borrow USB init/read only. **B&B:** retired.
 
 **Next:** one raw capture while holding SEND → paste hex → align decode to research (two peaks, sample index, 1400 m/s fat).

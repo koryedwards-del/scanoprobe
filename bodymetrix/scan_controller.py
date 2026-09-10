@@ -74,6 +74,7 @@ class ScanController:
                 self._last_env,
                 self._state.gain,
                 self._state.gain_index,
+                self._state.slider,
             )
         )
 
@@ -108,6 +109,7 @@ class ScanController:
             payload,
             gain_byte=gain,
             gain_index=self._state.gain_index,
+            slider=self._state.slider,
         )
         if reading is None:
             return False

@@ -90,31 +90,36 @@ def _envelope_at_led(env: np.ndarray, led: int) -> float:
     bin_idx = _bin_for_led(led)
     lo = max(0, bin_idx - 2)
     hi = min(len(env), bin_idx + 3)
+    if lo >= hi:
+        return 0.0
     return float(np.max(env[lo:hi]))
 
 
-def _dial_fraction(gain_index: int) -> float:
-    """Slider 0–50 → 0.0–1.0 along the depth bar."""
-    if gain_index <= 0:
+def _dial_fraction(slider: int) -> float:
+    """UI slider 0–50 → 0.0–1.0 software gain along the depth bar."""
+    if slider <= 0:
         return 0.0
-    return min(1.0, gain_index / float(FULL_BAR_GAIN_INDEX))
+    return min(1.0, int(slider) / float(SLIDER_MAX))
 
 
 def _envelope_threshold_mask(
-    env: np.ndarray, gain_byte: int, gain_index: int
+    env: np.ndarray,
+    gain_byte: int,
+    gain_index: int,
+    slider: int = 0,
 ) -> list[bool]:
     """
-    Slider/gain lights LEDs along the 0–50 depth bar from the echo.
+    1982 gain on cached echo: slider opens sensitivity shallow → deep.
 
-    Slide right → bar fills shallow-to-deep; slide left → peels off from the
-    deep end so the fascia triple is isolated for mm.
+    Software threshold on the envelope (BX packet); wand gain byte is separate.
+    Bar fills contiguously from LED 1; slide left peels from the deep end.
     """
-    if gain_index <= 0 or gain_byte <= 0 or len(env) < 32:
+    if slider <= 0 or len(env) < 32:
         return [False] * LED_COUNT
     if float(np.max(env)) < 2.0:
         return [False] * LED_COUNT
 
-    dial = _dial_fraction(gain_index)
+    dial = _dial_fraction(slider)
     if dial >= 1.0:
         return [True] * LED_COUNT
 
@@ -122,15 +127,17 @@ def _envelope_threshold_mask(
     peak = float(np.max(env))
     span = max(1.0, peak - baseline)
     floor = baseline + 0.05 * span
-    # How far along the depth bar gain has opened (shallow → deep).
     fill_to = max(0, int(round(dial * LED_COUNT)))
-    # Echo must beat this threshold — drops as dial rises.
     threshold = peak - span * dial * 0.98
 
-    on = [False] * LED_COUNT
+    rightmost = 0
     for led in range(1, fill_to + 1):
         if _envelope_at_led(env, led) > max(floor, threshold):
-            on[led - 1] = True
+            rightmost = led
+
+    on = [False] * LED_COUNT
+    for led in range(1, rightmost + 1):
+        on[led - 1] = True
     return on
 
 
@@ -143,9 +150,10 @@ def leds_for_echo(
     env: np.ndarray,
     gain_byte: int,
     gain_index: int,
+    slider: int = 0,
 ) -> tuple[bool, ...]:
-    """Echo + gain → which depth LEDs light."""
-    return tuple(_envelope_threshold_mask(env, gain_byte, gain_index))
+    """Cached echo + software gain (slider) → which depth LEDs light."""
+    return tuple(_envelope_threshold_mask(env, gain_byte, gain_index, slider))
 
 
 def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
@@ -224,9 +232,10 @@ def reading_from_echo(
     env: np.ndarray,
     gain_byte: int,
     gain_index: int,
+    slider: int = 0,
 ) -> ScaleReading:
-    """Gain amplitude + cached echo → LED bar; LCD = rightmost lit."""
-    led_on = leds_for_echo(env, gain_byte, gain_index)
+    """Software gain on cached echo → LED bar; LCD = rightmost lit."""
+    led_on = leds_for_echo(env, gain_byte, gain_index, slider)
     return reading_from_led_on(led_on, gain_byte, gain_index, env)
 
 
@@ -234,6 +243,7 @@ def scale_reading_from_payload(
     payload: bytes,
     gain_byte: int = 0,
     gain_index: int = DEFAULT_GAIN_INDEX,
+    slider: int = 0,
 ) -> ScaleReading | None:
     """
     Wand packet at this gain → echo threshold → LEDs → mm when three fat LEDs.
@@ -249,7 +259,7 @@ def scale_reading_from_payload(
     except ValueError:
         return None
 
-    return reading_from_echo(env, gain_byte, gain_index)
+    return reading_from_echo(env, gain_byte, gain_index, slider)
 
 
 def scale_mm_from_payload(

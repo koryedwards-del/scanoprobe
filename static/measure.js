@@ -96,21 +96,25 @@ function startPoll() {
 }
 
 async function setGainSlider(sliderVal, readWand = false) {
-  if (gainBusy && readWand) return;
-  gainBusy = true;
-  const prev = lastSlider;
   const val = Math.max(0, Math.min(SLIDER_MAX, parseInt(sliderVal, 10)));
   const slider = $("#gain-slider");
   if (slider) slider.value = String(val);
   $("#gain-label").textContent = `GAIN ${val}`;
+
+  if (readWand && gainBusy) return;
+  if (readWand) gainBusy = true;
+
+  const prev = lastSlider;
   try {
     const body = readWand ? { slider: val, read: true } : { slider: val };
     render(await api("/api/scan/gain", body));
   } catch {
-    if (slider) slider.value = String(prev);
-    $("#gain-label").textContent = `GAIN ${prev}`;
+    if (readWand) {
+      if (slider) slider.value = String(prev);
+      $("#gain-label").textContent = `GAIN ${prev}`;
+    }
   } finally {
-    gainBusy = false;
+    if (readWand) gainBusy = false;
   }
 }
 

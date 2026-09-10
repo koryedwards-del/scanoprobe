@@ -122,6 +122,8 @@ function render(state) {
     cachedEnvelope = null;
     fastGainSeq++;
     clearTimeout(fastGainTimer);
+    sliderDragging = false;
+    lastSlider = 0;
     const slider = $("#gain-slider");
     if (slider) slider.value = "0";
     $("#gain-label").textContent = "GAIN 0";

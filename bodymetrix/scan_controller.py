@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -11,7 +10,7 @@ from bodymetrix.bvalgo import envelope_from_payload
 from bodymetrix.scan_scale import (
     DEFAULT_GAIN_INDEX,
     EMPTY_LED_ON,
-    GAIN_STEPS,
+    LISTEN_GAIN_BYTE,
     ScanScaleState,
     reading_from_echo,
     reading_hint,
@@ -30,14 +29,16 @@ class BodyMetrixError(RuntimeError):
 class ScanController:
     """0–50 LED scale session using an open BodyMetrixProbe."""
 
-    # Gap since last good packet → treat next SEND as a fresh site.
-    NEW_SEND_GAP_S = 0.85
+    # Failed reads in a row → SEND released; next good packet = new press.
+    SEND_IDLE_MISSES = 3
 
     def __init__(self, probe: BodyMetrixProbe) -> None:
         self._probe = probe
         self._state = ScanScaleState()
         self._last_env: np.ndarray | None = None
-        self._last_success_at: float | None = None
+        self._send_live = False
+        self._miss_streak = 0
+        self._had_reading = False
         self._pending_new_send = False
 
     def state(self) -> dict[str, Any]:
@@ -65,6 +66,8 @@ class ScanController:
         self._state.bracket = reading.bracket
         self._state.live_mm = reading.mm
         self._state.message = reading_hint(reading)
+        if self._state.slider > 0 and sum(reading.led_on) > 0:
+            self._had_reading = True
 
     def _clear_leds(self) -> None:
         self._state.led_on = EMPTY_LED_ON
@@ -100,47 +103,55 @@ class ScanController:
         self._state.locked_mm = None
         self._state.set_slider(0)
         self._clear_leds()
+        self._had_reading = False
         self._pending_new_send = True
-        if self._probe_usb_ready():
-            try:
-                self._probe.write_gain(0)
-            except Exception:
-                pass
 
-    def _capture_at_gain(self, quick: bool = False) -> bytes:
-        gain = self._state.gain
-        self._probe.write_gain(gain)
+    def _note_send_miss(self) -> None:
+        self._miss_streak += 1
+        if self._miss_streak >= self.SEND_IDLE_MISSES:
+            self._send_live = False
+
+    def _capture_at_gain(self, gain_byte: int, quick: bool = False) -> bytes:
+        self._probe.write_gain(gain_byte)
         hold_s = 0.28 if quick else 0.45
         capture = self._probe._bodyview_button_read(hold_s=hold_s)
         if len(capture.payload) < 8 or is_placeholder_payload(capture.payload[:128]):
             read_ms = 300 if quick else 400
-            capture = self._probe.write_gain_and_read(gain, read_ms=read_ms)
+            capture = self._probe.write_gain_and_read(gain_byte, read_ms=read_ms)
         return capture.payload
 
-    def _read_at_gain(self, quick: bool = False) -> bool:
-        """Read wand echo at the current gain (packet shape depends on gain byte)."""
-        gain = self._state.gain
+    def _read_at_gain(self, quick: bool = False, listen: bool = False) -> bool:
+        """Read wand echo. listen=True uses mid wand gain while UI gain is 0."""
+        if listen:
+            gain_byte = LISTEN_GAIN_BYTE
+        else:
+            gain_byte = self._state.gain
         try:
-            payload = self._capture_at_gain(quick=quick)
+            payload = self._capture_at_gain(gain_byte, quick=quick)
         except Exception:
+            self._note_send_miss()
             return False
         if len(payload) < 8 or is_placeholder_payload(payload[:128]):
+            self._note_send_miss()
             return False
-        return self._ingest_capture(payload, gain)
 
-    def _ingest_capture(self, payload: bytes, gain: int) -> bool:
-        """Decode echo at this gain → cache envelope; display only when gain > 0."""
-        now = time.time()
-        if (
-            self._last_success_at is not None
-            and (now - self._last_success_at) > self.NEW_SEND_GAP_S
-        ):
+        new_send = (
+            not self._send_live
+            and self._miss_streak >= self.SEND_IDLE_MISSES
+            and self._had_reading
+        )
+        if new_send:
             self._reset_for_new_send()
-        self._last_success_at = now
 
+        self._miss_streak = 0
+        self._send_live = True
+        return self._ingest_capture(payload, gain_byte)
+
+    def _ingest_capture(self, payload: bytes, gain_byte: int) -> bool:
+        """Cache envelope; paint bar only when UI gain > 0."""
         reading = scale_reading_from_payload(
             payload,
-            gain_byte=gain,
+            gain_byte=gain_byte,
             gain_index=self._state.gain_index,
             slider=self._state.slider,
         )
@@ -158,7 +169,9 @@ class ScanController:
 
     def begin(self, site: int) -> dict[str, Any]:
         self._last_env = None
-        self._last_success_at = None
+        self._send_live = False
+        self._miss_streak = 0
+        self._had_reading = False
         self._pending_new_send = False
         self._state = ScanScaleState(
             active=True,
@@ -173,7 +186,9 @@ class ScanController:
 
     def end(self) -> dict[str, Any]:
         self._last_env = None
-        self._last_success_at = None
+        self._send_live = False
+        self._miss_streak = 0
+        self._had_reading = False
         self._state = ScanScaleState()
         return self.state()
 
@@ -196,7 +211,6 @@ class ScanController:
         self._state.set_slider(slider)
 
         if self._state.slider <= 0:
-            self._discard_cached_echo()
             self._clear_leds()
             if not fast and self._probe_usb_ready():
                 try:
@@ -252,18 +266,18 @@ class ScanController:
         if self._state.locked:
             return self.state()
 
-        # Gain at 0 — dark screen; still listen for SEND to cache a new echo.
+        if not self._probe_usb_ready():
+            if self._state.gain_index > 0:
+                self._apply_echo_leds()
+            else:
+                self._clear_leds()
+            return self.state()
+
+        listen = self._state.gain_index <= 0
+        self._read_at_gain(quick=True, listen=listen)
+
         if self._state.gain_index <= 0:
             self._clear_leds()
-            if self._probe_usb_ready():
-                self._read_at_gain(quick=True)
-            return self.state()
-
-        if not self._probe_usb_ready():
+        else:
             self._apply_echo_leds()
-            return self.state()
-
-        # Best-effort refresh; keep last good echo if SEND drops briefly.
-        self._read_at_gain(quick=False)
-        self._apply_echo_leds()
         return self.state()

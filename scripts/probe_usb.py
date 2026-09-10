@@ -317,6 +317,12 @@ def main() -> int:
     parser.add_argument("--seconds", type=float, default=30.0, help="SEND wait timeout")
     parser.add_argument("--timeout", type=float, default=30.0, help="Measure timeout (seconds)")
     parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=ROOT / "captures",
+        help="Directory for saved captures (listen/capture)",
+    )
+    parser.add_argument(
         "iokit_cmd",
         nargs="?",
         default="bx",
@@ -363,9 +369,12 @@ def main() -> int:
         return 0
     if args.command == "measure":
         return cmd_measure(probe, args.timeout)
-    if args.command in ("send", "listen", "capture"):
-        seconds = args.seconds if args.command != "capture" else args.timeout
-        return cmd_send(probe, seconds, args.out_dir, save=True)
+    if args.command == "send":
+        return cmd_send(probe, args.seconds, args.out_dir, save=False)
+    if args.command == "listen":
+        return cmd_send(probe, args.seconds, args.out_dir, save=True)
+    if args.command == "capture":
+        return cmd_send(probe, args.timeout, args.out_dir, save=True)
     return 1
 
 

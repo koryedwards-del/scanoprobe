@@ -92,11 +92,10 @@ Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired)
 **Assume:** gel on skin, probe on site. **BX 2000:** hold **SEND** while reading (USB). **1982 had no SEND** — just skin contact + gain.
 
 1. **Gain +** until the **0–50 LED bar fills** (all lights on).
-2. **Gain −** until only **three consecutive LEDs** remain in the fat zone.
-3. **Ignore LEDs 1, 2, 3** — those are **skin depth**, not the fat reading.
-4. Example bracket: **14, 15, 16** — **15 is the mm reading** (center LED solid).
-5. Fine-tune gain: **14 and 16 bounce**, **15 stays solid** — that is how gain **narrows** to the correct mm.
-6. **HOLD** locks the mm. Put down wand.
+2. **Gain −** — the bar shrinks; **three LEDs stay together**, start near the top (shallow), and **step down** tap by tap toward fascia.
+3. When the trio **stops moving down**, fascia is found — keep dialing **−** until the **rest of the scale goes to 0** and **only those three stay lit**.
+4. **Ignore LEDs 1, 2, 3** (skin) when reading — center of the three fat LEDs = mm (e.g. 11–12–13 → **12 mm**).
+5. Fine-tune: outer two **bounce**, center **solid** — then **HOLD** locks mm. Put down wand.
 
 **The wand never gives the true mm without gain control.** A raw packet at gain 0 is not a valid reading. Gain + fills the bar; gain − brackets to three LEDs; **then** center LED = mm. Showing 4 mm at gain 0 is wrong — do not display mm until bracketed.
 

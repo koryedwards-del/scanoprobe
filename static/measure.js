@@ -33,13 +33,6 @@ function ensureLedBar() {
   }
 }
 
-const FULL_BAR_GAIN_INDEX = 20;
-
-function fillCountFromGain(gainIndex) {
-  if (gainIndex >= FULL_BAR_GAIN_INDEX) return 50;
-  return Math.min(50, Math.max(0, Math.round((gainIndex / FULL_BAR_GAIN_INDEX) * 50)));
-}
-
 function renderLeds(state, gainChanged) {
   const bar = $("#led-bar");
   if (!bar) return;
@@ -49,8 +42,6 @@ function renderLeds(state, gainChanged) {
       ? state.mm ?? state.live_mm
       : null;
   const ledOn = state.led_on;
-  const gainIdx = state.gain_index ?? 0;
-  const gainFill = state.has_echo ? fillCountFromGain(gainIdx) : 0;
   const center = mm != null ? Math.round(mm) : 0;
   const b1 = center - 1;
   const b2 = center;

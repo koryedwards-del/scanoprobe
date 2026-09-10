@@ -45,8 +45,8 @@ GAIN_STEPS: tuple[int, ...] = (
 DEFAULT_GAIN_INDEX = 0
 # Top gain steps fill all 50 LEDs (+ on dial); dialing − collapses to 3-LED bracket.
 FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 4
-# After bar is full, dial − in this gain range to collapse to 3 fat LEDs.
-BRACKET_TUNING_LOW = max(4, FULL_BAR_GAIN_INDEX - 12)
+# Dial − this far below full bar with bracket at fascia → only 3 fat LEDs remain.
+BRACKET_FREEZE_STEPS = 6
 EMPTY_LED_ON: tuple[bool, ...] = tuple([False] * LED_COUNT)
 
 
@@ -82,10 +82,10 @@ class ScaleReading:
 
 
 def bracket_mode_active(gain_index: int, peak_gain_index: int) -> bool:
-    """Bracket collapse only after full bar, while dialing − in the tuning window."""
+    """After bar has filled once, dialing − travels / freezes the 3-LED bracket."""
     return (
         peak_gain_index >= FULL_BAR_GAIN_INDEX
-        and BRACKET_TUNING_LOW <= gain_index < FULL_BAR_GAIN_INDEX
+        and gain_index < FULL_BAR_GAIN_INDEX
     )
 
 
@@ -120,26 +120,68 @@ def _fascia_center_led(env: np.ndarray) -> int:
     return led if led is not None else 0
 
 
-def _envelope_bracket_mask(env: np.ndarray, gain_byte: int) -> list[bool]:
-    """Skin (1–3) + three fat LEDs around fascia (first peak past skin)."""
-    peak = float(np.max(env))
-    if peak < 2.0:
-        return [False] * LED_COUNT
+def _bracket_center_for_gain(env: np.ndarray, gain_index: int) -> int:
+    """
+    1982 dial − : three fat LEDs start shallow and step deeper until fascia.
 
-    gain_frac = max(0.0, min(1.0, gain_byte / 255.0))
-    skin_threshold = peak * (0.82 - 0.72 * gain_frac)
-    center = _fascia_center_led(env)
+    Returns center LED (1–50); 0 when fascia not found in echo.
+    """
+    fascia = _fascia_center_led(env)
+    if fascia < SKIN_LEDS + BRACKET_LEDS:
+        return 0
+
+    start_center = SKIN_LEDS + 2  # first bracket ~4–6 (ignore skin 1–3)
+    first_down = FULL_BAR_GAIN_INDEX - 1
+    if gain_index >= first_down:
+        return start_center
+
+    steps_down = first_down - gain_index
+    max_steps = max(1, first_down)
+    travel = fascia - start_center
+    center = start_center + int(round(steps_down * travel / max_steps))
+    return min(fascia, max(start_center, center))
+
+
+def _three_led_mask(center: int) -> list[bool]:
+    on = [False] * LED_COUNT
+    for led in range(center - 1, center + 2):
+        if 1 <= led <= LED_COUNT:
+            on[led - 1] = True
+    return on
+
+
+def _traveling_bracket_mask(env: np.ndarray, gain_index: int) -> list[bool]:
+    """
+    1982 gain − after full bar:
+    - bar fill shrinks
+    - three LEDs move down together until fascia
+    - then only those three stay lit as gain keeps dropping
+    """
+    center = _bracket_center_for_gain(env, gain_index)
+    fascia = _fascia_center_led(env)
+    if center < SKIN_LEDS + 2:
+        return _progressive_fill_mask(gain_index)
+
+    at_fascia = fascia >= SKIN_LEDS + BRACKET_LEDS and center >= fascia
+    steps_down = (FULL_BAR_GAIN_INDEX - 1) - gain_index
+    if at_fascia and steps_down >= BRACKET_FREEZE_STEPS:
+        return _three_led_mask(center)
+
+    fill_to = max(
+        center + 1,
+        int(round((gain_index / FULL_BAR_GAIN_INDEX) * LED_COUNT)),
+    )
+    fill_to = min(LED_COUNT, fill_to)
 
     on = [False] * LED_COUNT
-    for led in range(1, SKIN_LEDS + 1):
-        bin_idx = int(round(led / MM_PER_BIN))
-        if bin_idx < len(env) and float(env[bin_idx]) > skin_threshold:
-            on[led - 1] = True
-
-    if center >= SKIN_LEDS + 1:
-        for led in range(center - 1, center + 2):
-            if 1 <= led <= LED_COUNT:
-                on[led - 1] = True
+    for led in range(1, fill_to + 1):
+        on[led - 1] = True
+    # Collapse fat zone to the traveling trio (fill above bracket goes out first).
+    for led in range(SKIN_LEDS + 1, LED_COUNT + 1):
+        if led < center - 1 or led > center + 1:
+            on[led - 1] = False
+    for led in range(center - 1, center + 2):
+        on[led - 1] = True
     return on
 
 
@@ -188,10 +230,7 @@ def _led_mask(
         return [True] * LED_COUNT
     if not bracket_mode:
         return _progressive_fill_mask(gain_index)
-    mask = _envelope_bracket_mask(env, gain_byte)
-    if sum(mask) == 0:
-        return _progressive_fill_mask(gain_index)
-    return mask
+    return _traveling_bracket_mask(env, gain_index)
 
 
 def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
@@ -210,8 +249,8 @@ def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
 
 
 def _bracket_mm(led_on: list[bool]) -> float | None:
-    """True mm = center of exactly three fat-zone LEDs (e.g. 14–16 → 15)."""
-    if _fat_leds_lit(led_on) != BRACKET_LEDS:
+    """True mm when only three LEDs lit — frozen bracket at fascia (e.g. 11–13 → 12)."""
+    if sum(led_on) != BRACKET_LEDS:
         return None
     for start, end in reversed(_fat_zone_runs(led_on)):
         if end - start + 1 == BRACKET_LEDS:
@@ -288,10 +327,12 @@ def reading_hint(reading: ScaleReading) -> str:
     if reading.bracket and reading.mm is not None:
         return f"{reading.mm:g} mm — HOLD to lock"
     if reading.fat_leds_lit >= LED_COUNT - SKIN_LEDS - 2:
-        return "Bar full — dial − to bracket"
+        return "Bar full — dial − (3 LEDs travel down to fascia)"
+    if reading.fat_leds_lit == BRACKET_LEDS:
+        return "Three LEDs at fascia — dial − until only 3 remain, then HOLD"
     if reading.fat_leds_lit == 0:
         return "No LEDs at this gain — press + (BX: hold SEND on skin)"
-    return "Dial gain to three-LED bracket"
+    return "Dial − — 3 LEDs travel down; rest of bar fades to 0"
 
 
 @dataclass

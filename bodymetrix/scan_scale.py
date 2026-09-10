@@ -18,7 +18,9 @@ BRACKET_LEDS = 3
 # Fine dial: 128 steps (0, 2, 4, … 254) — like turning the 1982 gain knob.
 GAIN_STEPS: tuple[int, ...] = tuple(range(0, 256, 2))
 DEFAULT_GAIN_INDEX = 0
-FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 12
+# Top of the dial (slider right) → all 50 LEDs on when echo is present.
+FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 1
+FULL_BAR_GAIN_BYTE = GAIN_STEPS[FULL_BAR_GAIN_INDEX]
 EMPTY_LED_ON: tuple[bool, ...] = tuple([False] * LED_COUNT)
 
 
@@ -72,23 +74,31 @@ def _eligible_echo_leds(env: np.ndarray) -> list[tuple[float, int]]:
     return eligible
 
 
+def _full_bar_gain(gain_byte: int, gain_index: int) -> bool:
+    return gain_index >= FULL_BAR_GAIN_INDEX or gain_byte >= FULL_BAR_GAIN_BYTE
+
+
 def _envelope_threshold_mask(
     env: np.ndarray, gain_byte: int, gain_index: int
 ) -> list[bool]:
     """
     Gain dial turns LEDs on/off at real echo depths.
 
-    + gain → more LEDs on (weakest echoes appear last).
-    − gain → LEDs go off weakest-first; strongest (fascia) stay longest.
+    Top of dial → all 50 LEDs on (1982 bar full).
+    Below that: + gain adds depths; − removes weakest-first.
     """
     if gain_index <= 0 or gain_byte <= 0 or len(env) < 32:
         return [False] * LED_COUNT
+    if float(np.max(env)) < 2.0:
+        return [False] * LED_COUNT
+    if _full_bar_gain(gain_byte, gain_index):
+        return [True] * LED_COUNT
 
     eligible = _eligible_echo_leds(env)
     if not eligible:
         return [False] * LED_COUNT
 
-    dial = min(1.0, max(0.0, gain_byte / 255.0))
+    dial = min(1.0, max(0.0, gain_byte / float(FULL_BAR_GAIN_BYTE)))
     eligible.sort(key=lambda item: item[0])  # weakest .. strongest
     n_lit = int(round(dial * len(eligible)))
     if dial > 0 and n_lit < 1:
@@ -101,12 +111,8 @@ def _envelope_threshold_mask(
 
 
 def _bar_full(led_on: list[bool], env: np.ndarray, gain_byte: int) -> bool:
-    """All echo depths at this site are lit (bar full for this reading)."""
-    eligible = _eligible_echo_leds(env)
-    if len(eligible) < 4:
-        return False
-    lit = sum(led_on)
-    return lit >= len(eligible) and gain_byte >= GAIN_STEPS[FULL_BAR_GAIN_INDEX]
+    """Bar full — all 50 LEDs lit at top gain."""
+    return sum(led_on) >= LED_COUNT - 2 and gain_byte >= FULL_BAR_GAIN_BYTE
 
 
 def leds_for_echo(
@@ -231,7 +237,7 @@ def led_level(mm: float | None) -> int:
 def reading_hint(reading: ScaleReading) -> str:
     if reading.mm is not None:
         return f"{reading.mm:g} mm — HOLD to lock"
-    if reading.fat_leds_lit >= LED_COUNT - SKIN_LEDS - 2:
+    if sum(reading.led_on) >= LED_COUNT - 2:
         return "Bar full — dial − until three fat LEDs remain"
     if reading.fat_leds_lit == 0:
         return "Gain 0 — dark. Press + with SEND held on gel."

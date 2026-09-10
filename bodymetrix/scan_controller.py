@@ -59,8 +59,7 @@ class ScanController:
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
         self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
-        self._state.message = f"Gain {self._state.gain}"
-        return self._state.to_dict()
+        return self.tick()
 
     def toggle_hold(self) -> dict[str, Any]:
         if not self._state.active:
@@ -97,7 +96,11 @@ class ScanController:
         if len(capture.payload) < 8:
             capture = probe._bodyview_button_read(hold_s=0.35)
 
-        reading = scale_reading_from_payload(capture.payload, gain_byte=gain)
+        reading = scale_reading_from_payload(
+            capture.payload,
+            gain_byte=gain,
+            gain_index=self._state.gain_index,
+        )
         if reading is not None:
             self._state.led_on = reading.led_on
             self._state.bracket = reading.bracket

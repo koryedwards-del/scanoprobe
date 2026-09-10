@@ -42,6 +42,8 @@ GAIN_STEPS: tuple[int, ...] = (
     255,
 )
 DEFAULT_GAIN_INDEX = 0
+# Top gain steps fill all 50 LEDs (+ on dial); dialing − collapses to 3-LED bracket.
+FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 4
 
 
 def gain_at_index(index: int) -> int:
@@ -56,8 +58,12 @@ def index_for_gain(gain: int) -> int:
     return len(GAIN_STEPS) - 1
 
 
-def _bin_for_led(led: int) -> int:
-    return min(int(round(led / MM_PER_BIN)), 1023)
+def _led_for_bin(bin_idx: int) -> int | None:
+    """Envelope bin index → LED number (1–50) on depth axis."""
+    if bin_idx < 1:
+        return None
+    led = max(1, min(LED_COUNT, round(bin_idx * MM_PER_BIN)))
+    return led
 
 
 @dataclass(frozen=True)
@@ -71,28 +77,46 @@ class ScaleReading:
     method: str
 
 
-def _led_mask(env: np.ndarray) -> list[bool]:
+def _led_mask(env: np.ndarray, gain_byte: int, gain_index: int) -> list[bool]:
     """
-    Which LEDs light from this gain-adjusted envelope.
+    Gain + fills the bar; gain − collapses to skin (1–3) + three fat LEDs.
 
-    The wand gain byte (write_gain_and_read) already shapes the packet —
-    we apply a fixed display threshold, same as BodyView on screen.
+    Wand gain byte shapes the packet; gain_index drives screen threshold.
     """
-    baseline = float(np.median(env[:16]))
-    span = max(1.0, float(np.max(env) - baseline))
-    threshold = baseline + 0.12 * span
-    skin_floor = baseline + 0.05 * span
+    peak = float(np.max(env))
+    if peak < 2.0:
+        return [False] * LED_COUNT
+
+    gain_frac = max(0.0, min(1.0, gain_byte / 255.0))
+    threshold = peak * (0.92 - 0.88 * gain_frac)
+    skin_threshold = peak * (0.82 - 0.72 * gain_frac)
+
+    if gain_index >= FULL_BAR_GAIN_INDEX:
+        return [True] * LED_COUNT
+
+    center = 0
+    for led in range(LED_COUNT, SKIN_LEDS, -1):
+        bin_idx = int(round(led / MM_PER_BIN))
+        if bin_idx < len(env) and float(env[bin_idx]) > threshold:
+            center = led
+            break
 
     on = [False] * LED_COUNT
-    for led in range(1, LED_COUNT + 1):
-        b = _bin_for_led(led)
-        if b >= len(env):
-            continue
-        amp = float(env[b])
-        if led <= SKIN_LEDS:
-            on[led - 1] = amp > skin_floor
-        else:
-            on[led - 1] = amp > threshold
+    for led in range(1, SKIN_LEDS + 1):
+        bin_idx = int(round(led / MM_PER_BIN))
+        if bin_idx < len(env) and float(env[bin_idx]) > skin_threshold:
+            on[led - 1] = True
+
+    if center >= SKIN_LEDS + BRACKET_LEDS - 1:
+        for led in range(center - 1, center + 2):
+            if 1 <= led <= LED_COUNT:
+                on[led - 1] = True
+    elif gain_index > 0:
+        # Raising gain before fascia peak appears — bar fills progressively.
+        fill_to = max(SKIN_LEDS, int((gain_index / FULL_BAR_GAIN_INDEX) * LED_COUNT))
+        for led in range(1, fill_to + 1):
+            on[led - 1] = True
+
     return on
 
 
@@ -112,7 +136,7 @@ def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
 
 
 def _bracket_mm(led_on: list[bool]) -> float | None:
-    """True mm only when exactly three consecutive fat-zone LEDs (e.g. 14–16)."""
+    """True mm = center of three fat-zone LEDs (e.g. 14–16 → 15)."""
     for start, end in reversed(_fat_zone_runs(led_on)):
         if end - start + 1 == BRACKET_LEDS:
             center = (start + end) / 2.0
@@ -126,7 +150,9 @@ def _fat_leds_lit(led_on: list[bool]) -> int:
     return sum(1 for i in range(SKIN_LEDS, LED_COUNT) if led_on[i])
 
 
-def scale_reading_from_payload(payload: bytes, gain_byte: int = 0) -> ScaleReading | None:
+def scale_reading_from_payload(
+    payload: bytes, gain_byte: int = 0, gain_index: int = DEFAULT_GAIN_INDEX
+) -> ScaleReading | None:
     """
     Wand packet at this gain → LED pattern.
 
@@ -143,7 +169,7 @@ def scale_reading_from_payload(payload: bytes, gain_byte: int = 0) -> ScaleReadi
     except ValueError:
         return None
 
-    led_on = _led_mask(env)
+    led_on = _led_mask(env, gain_byte, gain_index)
     mm = _bracket_mm(led_on)
     fat_lit = _fat_leds_lit(led_on)
     bracket = mm is not None
@@ -160,8 +186,10 @@ def scale_reading_from_payload(payload: bytes, gain_byte: int = 0) -> ScaleReadi
     return ScaleReading(mm, tuple(led_on), bracket, fat_lit, method)
 
 
-def scale_mm_from_payload(payload: bytes, gain_byte: int = 0) -> float | None:
-    reading = scale_reading_from_payload(payload, gain_byte)
+def scale_mm_from_payload(
+    payload: bytes, gain_byte: int = 0, gain_index: int = DEFAULT_GAIN_INDEX
+) -> float | None:
+    reading = scale_reading_from_payload(payload, gain_byte, gain_index)
     return reading.mm if reading else None
 
 

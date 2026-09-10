@@ -10,7 +10,6 @@ from bodymetrix.bvalgo import envelope_from_payload
 from bodymetrix.scan_scale import (
     DEFAULT_GAIN_INDEX,
     EMPTY_LED_ON,
-    FULL_BAR_GAIN_INDEX,
     GAIN_STEPS,
     ScanScaleState,
     leds_for_echo,
@@ -41,8 +40,14 @@ class ScanController:
         out["has_echo"] = self._last_env is not None
         return out
 
+    def _apply_reading(self, reading) -> None:
+        self._state.led_on = reading.led_on
+        self._state.bracket = reading.bracket
+        self._state.live_mm = reading.mm
+        self._state.message = reading_hint(reading)
+
     def _apply_gain_leds(self) -> None:
-        """Re-threshold cached echo at new gain — LEDs appear/vanish instantly."""
+        """Re-threshold cached echo at new gain — LEDs appear/vanish with +/−."""
         if self._state.gain_index <= 0:
             self._state.led_on = EMPTY_LED_ON
             self._state.bracket = False
@@ -54,22 +59,14 @@ class ScanController:
             self._state.bracket = False
             self._state.live_mm = None
             return
-        self._state.led_on = leds_for_echo(
+        led_on = leds_for_echo(
             self._last_env,
             self._state.gain,
             self._state.gain_index,
-            self._state.peak_gain_index,
         )
-        reading = reading_from_led_on(
-            self._state.led_on,
-            self._state.gain,
-            self._state.gain_index,
-            self._state.peak_gain_index,
-            self._last_env,
+        self._apply_reading(
+            reading_from_led_on(led_on, self._state.gain, self._state.gain_index)
         )
-        self._state.bracket = reading.bracket
-        self._state.live_mm = reading.mm if reading.bracket else None
-        self._state.message = reading_hint(reading)
 
     def _ingest_capture(self, payload: bytes, gain: int) -> bool:
         """Decode echo → cache envelope + LED bar. Returns True when echo accepted."""
@@ -77,7 +74,6 @@ class ScanController:
             payload,
             gain_byte=gain,
             gain_index=self._state.gain_index,
-            peak_gain_index=self._state.peak_gain_index,
         )
         if reading is None:
             return False
@@ -85,14 +81,11 @@ class ScanController:
             self._last_env = envelope_from_payload(payload)
         except ValueError:
             return False
-        self._state.led_on = reading.led_on
-        self._state.bracket = reading.bracket
-        self._state.live_mm = reading.mm if reading.bracket else None
-        self._state.message = reading_hint(reading)
+        self._apply_reading(reading)
         return True
 
     def begin(self, site: int) -> dict[str, Any]:
-        self._last_env = None
+        self._last_env: np.ndarray | None = None
         self._state = ScanScaleState(
             active=True,
             site=site,
@@ -104,7 +97,7 @@ class ScanController:
         return self.state()
 
     def end(self) -> dict[str, Any]:
-        self._last_env = None
+        self._last_env: np.ndarray | None = None
         self._state = ScanScaleState()
         return self.state()
 
@@ -124,15 +117,10 @@ class ScanController:
             raise BodyMetrixError("Release HOLD before changing gain.")
         self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
         if self._state.gain_index <= 0:
-            self._state.peak_gain_index = 0
             self._state.led_on = EMPTY_LED_ON
             self._state.bracket = False
             self._state.live_mm = None
             self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
-        else:
-            self._state.peak_gain_index = max(
-                self._state.peak_gain_index, self._state.gain_index
-            )
         probe = self._probe
         probe.ensure_session()
         if not probe._pipes_configured:
@@ -142,7 +130,7 @@ class ScanController:
             self._apply_gain_leds()
             if self._last_env is None:
                 self._state.message = (
-                    f"Gain {self._state.gain_index} — hold SEND on gel for LEDs to fill."
+                    f"Gain {self._state.gain_index} — hold SEND on gel for LEDs."
                 )
         return self.state()
 
@@ -156,7 +144,7 @@ class ScanController:
         else:
             if self._state.live_mm is None:
                 raise BodyMetrixError(
-                    "No true mm yet — + fill bar, − to three-LED bracket, then HOLD."
+                    "No mm yet — dial gain until three fat LEDs show, then HOLD."
                 )
             self._state.locked = True
             self._state.locked_mm = self._state.live_mm
@@ -178,7 +166,6 @@ class ScanController:
 
         gain = self._state.gain
         probe.write_gain(gain)
-        # Proven BX path: OUT a001 while SEND is held (same as successful captures).
         capture = probe._bodyview_button_read(hold_s=0.45)
         if len(capture.payload) < 8 or is_placeholder_payload(capture.payload[:128]):
             capture = probe.write_gain_and_read(gain, read_ms=400)
@@ -192,7 +179,7 @@ class ScanController:
             self._apply_gain_leds()
             if self._last_env is None:
                 self._state.message = (
-                    f"Gain {self._state.gain_index} — hold SEND on gel, then LEDs fill."
+                    f"Gain {self._state.gain_index} — hold SEND on gel for LEDs."
                 )
 
         return self.state()

@@ -38,9 +38,7 @@ function renderLeds(state, gainChanged) {
   if (!bar) return;
   const mm = state.locked
     ? state.mm ?? state.locked_mm
-    : state.bracket
-      ? state.mm ?? state.live_mm
-      : null;
+    : state.live_mm ?? (state.bracket ? state.mm : null);
   const ledOn = state.led_on;
   const center = mm != null ? Math.round(mm) : 0;
   const b1 = center - 1;
@@ -63,9 +61,7 @@ function renderLeds(state, gainChanged) {
 function render(state, gainChanged = false) {
   const mm = state.locked
     ? state.mm ?? state.locked_mm
-    : state.bracket
-      ? state.mm ?? state.live_mm
-      : null;
+    : state.live_mm ?? (state.bracket ? state.mm : null);
   const locked = !!state.locked;
   const gainIdx = state.gain_index ?? 0;
 

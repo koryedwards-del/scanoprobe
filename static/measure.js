@@ -118,7 +118,8 @@ function applyLocalGain(val) {
 }
 
 function render(state) {
-  if (state.new_send) {
+  const isNewSend = !!state.new_send;
+  if (isNewSend) {
     cachedEnvelope = null;
     fastGainSeq++;
     clearTimeout(fastGainTimer);
@@ -130,19 +131,24 @@ function render(state) {
     $("#mm").textContent = "—";
     renderLeds(Array(LED_COUNT).fill(false));
   }
-  if (Array.isArray(state.envelope) && state.envelope.length >= 32) {
-    cachedEnvelope = state.envelope;
-  }
 
   const sliderPos = state.slider ?? 0;
-  $("#gain-label").textContent = `GAIN ${sliderPos}`;
+  if (!isNewSend || sliderPos > 0) {
+    $("#gain-label").textContent = `GAIN ${sliderPos}`;
+  }
 
   if (sliderDragging && cachedEnvelope) {
     applyLocalGain(parseInt($("#gain-slider")?.value ?? sliderPos, 10));
   } else {
-    $("#mm").textContent = formatLcd(state);
+    if (!isNewSend) {
+      $("#mm").textContent = formatLcd(state);
+    }
     renderLeds(state.led_on);
     syncGainSlider(state);
+  }
+
+  if (Array.isArray(state.envelope) && state.envelope.length >= 32) {
+    cachedEnvelope = state.envelope;
   }
 
   lastSlider = sliderPos;

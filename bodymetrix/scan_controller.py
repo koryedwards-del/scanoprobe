@@ -16,7 +16,7 @@ from bodymetrix.scan_scale import (
     reading_hint,
     scale_reading_from_payload,
 )
-from bodymetrix.scanoprobe import is_placeholder_payload
+from bodymetrix.scanoprobe import is_placeholder_payload, payload_quality
 
 if TYPE_CHECKING:
     from bodymetrix.device import BodyMetrixProbe
@@ -29,8 +29,10 @@ class BodyMetrixError(RuntimeError):
 class ScanController:
     """0–50 LED scale session using an open BodyMetrixProbe."""
 
-    # Failed reads in a row → SEND released; next good packet = new press.
+    # Failed reads in a row → SEND released; next confident packet = new press.
     SEND_IDLE_MISSES = 3
+    # Minimum echo quality while idle — weak USB padding must not clear the idle latch.
+    CONFIDENT_ECHO_QUALITY = 0.35
 
     def __init__(self, probe: BodyMetrixProbe) -> None:
         self._probe = probe
@@ -38,7 +40,8 @@ class ScanController:
         self._last_env: np.ndarray | None = None
         self._send_live = False
         self._miss_streak = 0
-        self._had_reading = False
+        self._site_engaged = False
+        self._send_armed = False
         self._pending_new_send = False
 
     def state(self) -> dict[str, Any]:
@@ -66,8 +69,6 @@ class ScanController:
         self._state.bracket = reading.bracket
         self._state.live_mm = reading.mm
         self._state.message = reading_hint(reading)
-        if self._state.slider > 0 and sum(reading.led_on) > 0:
-            self._had_reading = True
 
     def _clear_leds(self) -> None:
         self._state.led_on = EMPTY_LED_ON
@@ -103,13 +104,25 @@ class ScanController:
         self._state.locked_mm = None
         self._state.set_slider(0)
         self._clear_leds()
-        self._had_reading = False
+        self._site_engaged = False
+        self._send_armed = False
         self._pending_new_send = True
+
+    def _is_confident_echo(self, payload: bytes) -> bool:
+        """Real SEND echo — not USB padding that would break idle detection."""
+        if len(payload) < 8 or is_placeholder_payload(payload[:128]):
+            return False
+        return payload_quality(payload[:128]) >= self.CONFIDENT_ECHO_QUALITY
+
+    def _arm_send_reset(self) -> None:
+        """Latch: SEND was released; next confident press starts a new site."""
+        self._send_armed = True
+        self._send_live = False
 
     def _note_send_miss(self) -> None:
         self._miss_streak += 1
         if self._miss_streak >= self.SEND_IDLE_MISSES:
-            self._send_live = False
+            self._arm_send_reset()
 
     def _capture_at_gain(self, gain_byte: int, quick: bool = False) -> bytes:
         self._probe.write_gain(gain_byte)
@@ -131,15 +144,11 @@ class ScanController:
         except Exception:
             self._note_send_miss()
             return False
-        if len(payload) < 8 or is_placeholder_payload(payload[:128]):
+        if not self._is_confident_echo(payload):
             self._note_send_miss()
             return False
 
-        new_send = (
-            not self._send_live
-            and self._miss_streak >= self.SEND_IDLE_MISSES
-            and self._had_reading
-        )
+        new_send = self._site_engaged and self._send_armed
         if new_send:
             self._reset_for_new_send()
 
@@ -171,7 +180,8 @@ class ScanController:
         self._last_env = None
         self._send_live = False
         self._miss_streak = 0
-        self._had_reading = False
+        self._site_engaged = False
+        self._send_armed = False
         self._pending_new_send = False
         self._state = ScanScaleState(
             active=True,
@@ -188,7 +198,8 @@ class ScanController:
         self._last_env = None
         self._send_live = False
         self._miss_streak = 0
-        self._had_reading = False
+        self._site_engaged = False
+        self._send_armed = False
         self._state = ScanScaleState()
         return self.state()
 
@@ -209,6 +220,8 @@ class ScanController:
             raise BodyMetrixError("Release HOLD before changing gain.")
 
         self._state.set_slider(slider)
+        if self._state.slider > 0:
+            self._site_engaged = True
 
         if self._state.slider <= 0:
             self._clear_leds()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -16,7 +17,7 @@ from bodymetrix.scan_scale import (
     reading_hint,
     scale_reading_from_payload,
 )
-from bodymetrix.scanoprobe import is_placeholder_payload, payload_quality
+from bodymetrix.scanoprobe import is_placeholder_payload
 
 if TYPE_CHECKING:
     from bodymetrix.device import BodyMetrixProbe
@@ -29,19 +30,15 @@ class BodyMetrixError(RuntimeError):
 class ScanController:
     """0–50 LED scale session using an open BodyMetrixProbe."""
 
-    # Failed reads in a row → SEND released; next confident packet = new press.
-    SEND_IDLE_MISSES = 3
-    # Minimum echo quality while idle — weak USB padding must not clear the idle latch.
-    CONFIDENT_ECHO_QUALITY = 0.35
+    # Gap between good reads while scanning → SEND released, next read = new site.
+    NEW_SEND_GAP_SEC = 1.2
 
     def __init__(self, probe: BodyMetrixProbe) -> None:
         self._probe = probe
         self._state = ScanScaleState()
         self._last_env: np.ndarray | None = None
-        self._send_live = False
-        self._miss_streak = 0
         self._site_engaged = False
-        self._send_armed = False
+        self._last_good_at: float | None = None
         self._pending_new_send = False
 
     def state(self) -> dict[str, Any]:
@@ -105,24 +102,8 @@ class ScanController:
         self._state.set_slider(0)
         self._clear_leds()
         self._site_engaged = False
-        self._send_armed = False
+        self._last_good_at = None
         self._pending_new_send = True
-
-    def _is_confident_echo(self, payload: bytes) -> bool:
-        """Real SEND echo — not USB padding that would break idle detection."""
-        if len(payload) < 8 or is_placeholder_payload(payload[:128]):
-            return False
-        return payload_quality(payload[:128]) >= self.CONFIDENT_ECHO_QUALITY
-
-    def _arm_send_reset(self) -> None:
-        """Latch: SEND was released; next confident press starts a new site."""
-        self._send_armed = True
-        self._send_live = False
-
-    def _note_send_miss(self) -> None:
-        self._miss_streak += 1
-        if self._miss_streak >= self.SEND_IDLE_MISSES:
-            self._arm_send_reset()
 
     def _capture_at_gain(self, gain_byte: int, quick: bool = False) -> bytes:
         self._probe.write_gain(gain_byte)
@@ -142,21 +123,21 @@ class ScanController:
         try:
             payload = self._capture_at_gain(gain_byte, quick=quick)
         except Exception:
-            self._note_send_miss()
             return False
-        scanning = self._state.slider > 0
-        if not self._is_confident_echo(payload):
-            if scanning or self._send_armed:
-                self._note_send_miss()
+        if len(payload) < 8 or is_placeholder_payload(payload[:128]):
             return False
 
-        if self._send_armed and self._site_engaged:
+        now = time.monotonic()
+        gap = (now - self._last_good_at) if self._last_good_at else 0.0
+        if (
+            self._site_engaged
+            and self._last_good_at is not None
+            and gap >= self.NEW_SEND_GAP_SEC
+        ):
             self._reset_for_new_send()
-            scanning = False
 
-        if scanning:
-            self._miss_streak = 0
-            self._send_live = True
+        if self._state.slider > 0:
+            self._last_good_at = now
 
         return self._ingest_capture(payload, gain_byte)
 
@@ -182,10 +163,8 @@ class ScanController:
 
     def begin(self, site: int) -> dict[str, Any]:
         self._last_env = None
-        self._send_live = False
-        self._miss_streak = 0
         self._site_engaged = False
-        self._send_armed = False
+        self._last_good_at = None
         self._pending_new_send = False
         self._state = ScanScaleState(
             active=True,
@@ -200,10 +179,8 @@ class ScanController:
 
     def end(self) -> dict[str, Any]:
         self._last_env = None
-        self._send_live = False
-        self._miss_streak = 0
         self._site_engaged = False
-        self._send_armed = False
+        self._last_good_at = None
         self._state = ScanScaleState()
         return self.state()
 

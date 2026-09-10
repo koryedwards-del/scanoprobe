@@ -28,28 +28,8 @@ function formatLcd(state) {
   return pos > 0 ? String(pos) : "—";
 }
 
-function depthZeroBin(env) {
-  if (env.length < 64) return 0;
-  const head = env.slice(0, 32).sort((a, b) => a - b);
-  const baseline = head[Math.floor(head.length / 2)] ?? 0;
-  let peak = 0;
-  for (let i = 0; i < env.length; i++) peak = Math.max(peak, env[i]);
-  const trigger = baseline + 0.08 * (peak - baseline);
-  let run = 0;
-  const end = Math.min(env.length - 4, 400);
-  for (let i = 5; i < end; i++) {
-    if (env[i] > trigger) {
-      run += 1;
-      if (run >= 3) return Math.max(0, i - 2);
-    } else {
-      run = 0;
-    }
-  }
-  return 0;
-}
-
-function envelopeAtLed(env, led, depthZero = 0) {
-  const binIdx = depthZero + Math.round(led / MM_PER_BIN);
+function envelopeAtLed(env, led) {
+  const binIdx = Math.round(led / MM_PER_BIN);
   const lo = Math.max(0, binIdx - 2);
   const hi = Math.min(env.length, binIdx + 3);
   if (lo >= hi) return 0;
@@ -67,22 +47,21 @@ function ledsForEcho(env, slider) {
   if (peak < 2) return off;
 
   const dial = Math.min(1, slider / SLIDER_MAX);
-  const depthZero = depthZeroBin(env);
-  const tail = env.slice(depthZero, Math.min(env.length, depthZero + 600));
-  if (tail.length < 16) return off;
+  if (dial >= 1) return Array(LED_COUNT).fill(true);
 
-  const head = tail.slice(0, 16).sort((a, b) => a - b);
+  const head = env.slice(0, 16).sort((a, b) => a - b);
   const baseline = head[Math.floor(head.length / 2)] ?? 0;
-  const tailPeak = Math.max(...tail);
-  const span = Math.max(1, tailPeak - baseline);
+  const span = Math.max(1, peak - baseline);
   const floor = baseline + 0.05 * span;
-  const threshold = tailPeak - span * dial * 0.98;
+  const fillTo = Math.max(1, Math.round(dial * LED_COUNT));
+  const threshold = peak - span * dial * 0.98;
 
-  for (let led = 1; led <= LED_COUNT; led++) {
-    if (envelopeAtLed(env, led, depthZero) > Math.max(floor, threshold)) {
-      off[led - 1] = true;
-    }
+  let rightmost = 0;
+  for (let led = 1; led <= fillTo; led++) {
+    if (envelopeAtLed(env, led) > Math.max(floor, threshold)) rightmost = led;
   }
+  if (rightmost === 0 && peak > floor) rightmost = fillTo;
+  for (let led = 1; led <= rightmost; led++) off[led - 1] = true;
   return off;
 }
 

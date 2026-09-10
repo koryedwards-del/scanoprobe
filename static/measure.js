@@ -34,6 +34,7 @@ function borderLed(ledOn) {
 }
 
 function formatLcd(state) {
+  if (state.locked && state.mm != null) return String(Math.round(state.mm));
   const fromState = state.lcd;
   if (fromState != null && fromState > 0) return String(fromState);
   const pos = borderLed(state.led_on);
@@ -138,13 +139,27 @@ function renderLeds(ledOn) {
   });
 }
 
-function syncGainSlider(state, locked) {
+function syncGainSlider(state) {
   const slider = $("#gain-slider");
   if (!slider || sliderDragging) return;
   slider.max = String(state.slider_max ?? SLIDER_MAX);
   const pos = state.slider ?? 0;
   slider.value = String(pos);
+  slider.disabled = !!state.locked;
   lastSlider = pos;
+}
+
+function syncHold(state) {
+  const device = $("#device");
+  const btn = $("#hold-btn");
+  const locked = !!state.locked;
+  if (device) device.classList.toggle("locked", locked);
+  if (!btn) return;
+  btn.classList.toggle("active", locked);
+  btn.setAttribute("aria-pressed", locked ? "true" : "false");
+  btn.textContent = locked ? "HOLD" : "HOLD";
+  const hasMm = state.mm != null || borderLed(state.led_on) > 0;
+  btn.disabled = !locked && !hasMm;
 }
 
 function applyLocalGain(val) {
@@ -179,7 +194,13 @@ function render(state) {
     $("#gain-label").textContent = `GAIN ${sliderPos}`;
   }
 
-  if (sliderDragging && cachedEnvelope) {
+  if (state.locked) {
+    stopPoll();
+  } else if (!pollTimer && !sliderDragging) {
+    startPoll();
+  }
+
+  if (sliderDragging && cachedEnvelope && !state.locked) {
     applyLocalGain(parseInt($("#gain-slider")?.value ?? sliderPos, 10));
   } else {
     if (!isNewSend) {
@@ -188,6 +209,8 @@ function render(state) {
     renderLeds(state.led_on);
     syncGainSlider(state);
   }
+
+  syncHold(state);
 
   if (Array.isArray(state.envelope) && state.envelope.length >= 32) {
     cachedEnvelope = state.envelope;
@@ -297,6 +320,22 @@ async function refreshProbe() {
   }
 }
 
+async function toggleHold() {
+  const btn = $("#hold-btn");
+  if (btn?.disabled) return;
+  try {
+    render(await api("/api/scan/hold"));
+  } catch (err) {
+    /* no reading yet */
+  }
+}
+
+function bindHold() {
+  const btn = $("#hold-btn");
+  if (!btn) return;
+  btn.addEventListener("click", () => toggleHold());
+}
+
 async function beginSession() {
   stopPoll();
   sliderDragging = false;
@@ -311,6 +350,7 @@ async function init() {
   await refreshProbe();
   await beginSession();
   bindGainSlider();
+  bindHold();
 }
 
 init();

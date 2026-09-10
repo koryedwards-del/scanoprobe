@@ -302,4 +302,37 @@ body {
   box-shadow: 0 0 8px var(--led-glow);
 }
 
+.hold-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #ccc;
+  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 2px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.hold-btn:hover:not(:disabled) {
+  border-color: #666;
+  color: #eee;
+}
+
+.hold-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.hold-btn.active {
+  color: #1a1a1a;
+  background: linear-gradient(180deg, #f0c050 0%, var(--hold-amber) 100%);
+  border-color: #c08010;
+  box-shadow: 0 0 10px var(--hold-glow);
+}
+
 .hidden { display: none !important; }

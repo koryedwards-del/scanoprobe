@@ -64,6 +64,16 @@ def rightmost_lit_led(led_on: tuple[bool, ...] | list[bool]) -> int:
     return 0
 
 
+def bracket_lcd(led_on: tuple[bool, ...] | list[bool], gain_index: int) -> int:
+    """LCD: center of 3 fat LEDs when bracketed, else rightmost lit."""
+    if gain_index <= 0 or not led_on or len(led_on) < LED_COUNT:
+        return 0
+    mm = _mm_from_gain_leds(list(led_on), gain_index)
+    if mm is not None:
+        return int(round(mm))
+    return rightmost_lit_led(led_on)
+
+
 def leds_for_slider(slider: int) -> tuple[bool, ...]:
     """Slider 0–50 → that many LEDs on (1..N). Far left 0, far right 50."""
     n = max(0, min(SLIDER_MAX, int(slider)))
@@ -112,9 +122,10 @@ def _envelope_threshold_mask(
     slider: int = 0,
 ) -> list[bool]:
     """
-    1982 gain on cached echo: slider opens depth window shallow → deep.
+    1982 gain on cached echo: each LED lights only where echo beats threshold.
 
-    Bar fills contiguously from LED 1; slide left peels from the deep end.
+    No imposed bracket — gain up fills the bar; gain down peels LEDs off
+    naturally. Three fat LEDs remaining = fascia reading (ignore LEDs 1–3).
     """
     if slider <= 0 or len(env) < 32:
         return [False] * LED_COUNT
@@ -122,28 +133,20 @@ def _envelope_threshold_mask(
         return [False] * LED_COUNT
 
     dial = _dial_fraction(slider)
-    if dial >= 1.0:
+    if dial >= 0.98:
         return [True] * LED_COUNT
 
     baseline = float(np.median(env[:16]))
     peak = float(np.max(env))
     span = max(1.0, peak - baseline)
     floor = baseline + 0.05 * span
-    fill_to = max(1, int(round(dial * LED_COUNT)))
     threshold = peak - span * dial * 0.98
-
-    rightmost = 0
-    for led in range(1, fill_to + 1):
-        if _envelope_at_led(env, led) > max(floor, threshold):
-            rightmost = led
-
-    # Gain opens the depth window — show fill_to LEDs once any echo is present.
-    if rightmost == 0 and peak > floor:
-        rightmost = fill_to
+    cut = max(floor, threshold)
 
     on = [False] * LED_COUNT
-    for led in range(1, rightmost + 1):
-        on[led - 1] = True
+    for led in range(1, LED_COUNT + 1):
+        if _envelope_at_led(env, led) > cut:
+            on[led - 1] = True
     return on
 
 
@@ -335,7 +338,7 @@ class ScanScaleState:
             "live_mm": self.live_mm,
             "locked_mm": self.locked_mm,
             "led_on": list(self.led_on) if len(self.led_on) >= LED_COUNT else list(EMPTY_LED_ON),
-            "lcd": rightmost_lit_led(self.led_on),
+            "lcd": bracket_lcd(self.led_on, self.gain_index),
             "led_level": led_level(mm),
             "led_max": LED_COUNT,
             "message": self.message,

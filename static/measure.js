@@ -47,21 +47,18 @@ function ledsForEcho(env, slider) {
   if (peak < 2) return off;
 
   const dial = Math.min(1, slider / SLIDER_MAX);
-  if (dial >= 1) return Array(LED_COUNT).fill(true);
+  if (dial >= 0.98) return Array(LED_COUNT).fill(true);
 
   const head = env.slice(0, 16).sort((a, b) => a - b);
   const baseline = head[Math.floor(head.length / 2)] ?? 0;
   const span = Math.max(1, peak - baseline);
   const floor = baseline + 0.05 * span;
-  const fillTo = Math.max(1, Math.round(dial * LED_COUNT));
   const threshold = peak - span * dial * 0.98;
+  const cut = Math.max(floor, threshold);
 
-  let rightmost = 0;
-  for (let led = 1; led <= fillTo; led++) {
-    if (envelopeAtLed(env, led) > Math.max(floor, threshold)) rightmost = led;
+  for (let led = 1; led <= LED_COUNT; led++) {
+    if (envelopeAtLed(env, led) > cut) off[led - 1] = true;
   }
-  if (rightmost === 0 && peak > floor) rightmost = fillTo;
-  for (let led = 1; led <= rightmost; led++) off[led - 1] = true;
   return off;
 }
 

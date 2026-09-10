@@ -11,8 +11,6 @@ let fastGainSeq = 0;
 const SLIDER_MAX = 50;
 const LED_COUNT = 50;
 const MM_PER_BIN = 0.1;
-const SKIN_MM = 3.0;
-const PEAK_SEARCH_START = 5;
 const $ = (sel) => document.querySelector(sel);
 
 function rightmostLitLed(ledOn) {
@@ -30,37 +28,10 @@ function formatLcd(state) {
   return pos > 0 ? String(pos) : "—";
 }
 
-function findFirstPeak(env, start, end, threshold) {
-  const stop = Math.min(end, env.length - 1);
-  for (let i = Math.max(1, start); i < stop; i++) {
-    if (env[i] < threshold) continue;
-    if (env[i] >= env[i - 1] && env[i] >= env[i + 1]) return i;
-  }
-  return null;
-}
-
-function depthAnchor(env) {
-  const head = env.slice(0, Math.max(16, Math.floor(env.length / 32))).sort((a, b) => a - b);
-  const baseline = head[Math.floor(head.length / 2)] ?? 0;
-  let peak = 0;
-  for (let i = 0; i < env.length; i++) peak = Math.max(peak, env[i]);
-  const threshold = baseline + 0.12 * (peak - baseline);
-  const skinBin = Math.round(SKIN_MM / MM_PER_BIN);
-  const skinIdx = findFirstPeak(env, PEAK_SEARCH_START, skinBin + 40, threshold);
-  if (skinIdx != null) return Math.max(0, skinIdx - skinBin);
-  for (let i = PEAK_SEARCH_START; i < env.length - 2; i++) {
-    if (env[i] < threshold) continue;
-    if (env[i] >= env[i - 1] && env[i] >= env[i + 1]) {
-      return Math.max(0, i - skinBin);
-    }
-  }
-  return 0;
-}
-
-function envelopeAtLed(env, led, anchor) {
-  const binIdx = anchor + Math.round(led / MM_PER_BIN);
-  const lo = Math.max(0, binIdx - 4);
-  const hi = Math.min(env.length, binIdx + 5);
+function envelopeAtMm(env, mm) {
+  const binIdx = Math.round(mm / MM_PER_BIN);
+  const lo = Math.max(0, binIdx - 2);
+  const hi = Math.min(env.length, binIdx + 3);
   if (lo >= hi) return 0;
   let peak = 0;
   for (let i = lo; i < hi; i++) peak = Math.max(peak, env[i]);
@@ -74,22 +45,16 @@ function ledsForEcho(env, slider) {
   let peak = 0;
   for (let i = 0; i < env.length; i++) peak = Math.max(peak, env[i]);
   if (peak < 2) return off;
+  if (slider >= SLIDER_MAX) return Array(LED_COUNT).fill(true);
 
-  const dial = Math.min(1, slider / SLIDER_MAX);
-  if (dial >= 0.98) return Array(LED_COUNT).fill(true);
-
-  const anchor = depthAnchor(env);
-  const tail = env.slice(anchor, Math.min(env.length, anchor + 550));
-  const head = tail.slice(0, 16).sort((a, b) => a - b);
+  const dial = slider / SLIDER_MAX;
+  const head = env.slice(0, 16).sort((a, b) => a - b);
   const baseline = head[Math.floor(head.length / 2)] ?? 0;
-  const tailPeak = Math.max(...tail);
-  const span = Math.max(1, tailPeak - baseline);
-  const floor = baseline + 0.05 * span;
-  const threshold = tailPeak - span * dial * 0.98;
-  const cut = Math.max(floor, threshold);
+  const span = Math.max(1, peak - baseline);
+  const cut = peak - span * dial * 0.98;
 
-  for (let led = 1; led <= LED_COUNT; led++) {
-    if (envelopeAtLed(env, led, anchor) > cut) off[led - 1] = true;
+  for (let mm = 1; mm <= LED_COUNT; mm++) {
+    if (envelopeAtMm(env, mm) > cut) off[mm - 1] = true;
   }
   return off;
 }

@@ -1,4 +1,4 @@
-"""Scanoprobe 0–50 LED scale — gain + echo threshold → LEDs; LCD = depth."""
+"""Scanoprobe 0–50 LED scale — follow the 1982 flow."""
 
 from __future__ import annotations
 
@@ -6,28 +6,18 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from bodymetrix.bvalgo import (
-    MM_PER_BIN,
-    PEAK_SEARCH_START_BIN,
-    envelope_from_payload,
-    find_first_peak_in_array,
-    find_peaks,
-)
-from bodymetrix.mm_bounds import SKIN_THICKNESS_MM
+from bodymetrix.bvalgo import MM_PER_BIN, envelope_from_payload
 from bodymetrix.bodyview_parse import is_bodyview_bx_packet
-from bodymetrix.mm_bounds import is_plausible_mm
+from bodymetrix.mm_bounds import SKIN_THICKNESS_MM, is_plausible_mm
 from bodymetrix.scanoprobe import is_placeholder_payload
 
 LED_COUNT = 50
-SKIN_LEDS = 3
+SKIN_LEDS = int(round(SKIN_THICKNESS_MM))
 
-# Internal wand gain bytes; UI slider is 0–50 (matches depth bar).
 GAIN_STEPS: tuple[int, ...] = tuple(range(0, 256, 2))
 DEFAULT_GAIN_INDEX = 0
 SLIDER_MAX = LED_COUNT
 FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 1
-FULL_BAR_GAIN_BYTE = GAIN_STEPS[FULL_BAR_GAIN_INDEX]
-# Wand capture gain while UI gain is 0 (SEND held, bar dark).
 LISTEN_GAIN_INDEX = len(GAIN_STEPS) // 2
 LISTEN_GAIN_BYTE = GAIN_STEPS[LISTEN_GAIN_INDEX]
 EMPTY_LED_ON: tuple[bool, ...] = tuple([False] * LED_COUNT)
@@ -38,15 +28,7 @@ def gain_at_index(index: int) -> int:
     return GAIN_STEPS[i]
 
 
-def index_for_gain(gain: int) -> int:
-    for i, g in enumerate(GAIN_STEPS):
-        if g >= gain:
-            return i
-    return len(GAIN_STEPS) - 1
-
-
 def gain_index_for_slider(slider: int) -> int:
-    """Map UI slider 0–50 → wand gain index."""
     if slider <= 0:
         return 0
     idx = int(round((slider / float(SLIDER_MAX)) * FULL_BAR_GAIN_INDEX))
@@ -54,14 +36,12 @@ def gain_index_for_slider(slider: int) -> int:
 
 
 def slider_for_gain_index(gain_index: int) -> int:
-    """Map wand gain index → UI slider 0–50."""
     if gain_index <= 0:
         return 0
     return int(round((gain_index / float(FULL_BAR_GAIN_INDEX)) * SLIDER_MAX))
 
 
 def rightmost_lit_led(led_on: tuple[bool, ...] | list[bool]) -> int:
-    """Rightmost lit LED position 1–50, or 0 if none."""
     if not led_on or len(led_on) < LED_COUNT:
         return 0
     for i in range(LED_COUNT - 1, -1, -1):
@@ -70,220 +50,65 @@ def rightmost_lit_led(led_on: tuple[bool, ...] | list[bool]) -> int:
     return 0
 
 
-def leds_for_slider(slider: int) -> tuple[bool, ...]:
-    """Slider 0–50 → that many LEDs on (1..N). Far left 0, far right 50."""
-    n = max(0, min(SLIDER_MAX, int(slider)))
-    on = [False] * LED_COUNT
-    for led in range(1, n + 1):
-        on[led - 1] = True
-    return tuple(on)
-
-
 @dataclass(frozen=True)
 class ScaleReading:
-    """Depth mm from rightmost lit LED (ignore skin LEDs 1–3)."""
-
     mm: float | None
     led_on: tuple[bool, ...]
-    method: str
 
 
-def _depth_anchor(env: np.ndarray) -> int:
-    """
-    Envelope bin for 0 mm depth — aligns LED 1–50 with real tissue depth.
-
-    Skin peak sits near LED 3 (~3 mm); fat/muscle fascia can land anywhere 3–50.
-    """
-    baseline = float(np.median(env[: max(16, len(env) // 32)]))
-    span = max(1.0, float(np.max(env) - baseline))
-    threshold = baseline + 0.12 * span
-    skin_bin = int(round(SKIN_THICKNESS_MM / MM_PER_BIN))
-    skin_idx = find_first_peak_in_array(
-        env,
-        PEAK_SEARCH_START_BIN,
-        min(len(env) - 2, skin_bin + 40),
-        threshold,
-    )
-    if skin_idx is not None:
-        return max(0, skin_idx - skin_bin)
-    peaks = find_peaks(env)
-    if peaks:
-        return max(0, peaks[0][0] - skin_bin)
-    return 0
-
-
-def _bin_for_led(led: int, anchor: int = 0) -> int:
-    """LED position 1–50 mm → envelope bin (skin-anchored)."""
-    return anchor + int(round(led / MM_PER_BIN))
-
-
-def _led_for_bin(bin_idx: int, anchor: int) -> int:
-    """Envelope bin → LED position on the 1–50 mm bar."""
-    mm = (bin_idx - anchor) * MM_PER_BIN
-    return max(1, min(LED_COUNT, int(round(mm))))
-
-
-def _fm_muscle_bin(env: np.ndarray) -> int | None:
-    """Fat–muscle boundary bin from wand echo (BodyView peak search)."""
-    baseline = float(np.median(env[:16]))
-    span = max(1.0, float(np.max(env) - baseline))
-    threshold = baseline + 0.12 * span
-    skin_bin = int(round(SKIN_THICKNESS_MM / MM_PER_BIN))
-    anchor = _depth_anchor(env)
-    skin_idx = find_first_peak_in_array(
-        env,
-        PEAK_SEARCH_START_BIN,
-        min(len(env) - 2, anchor + skin_bin + 40),
-        threshold,
-    )
-    start = (skin_idx + 5) if skin_idx is not None else anchor + skin_bin + 5
-    return find_first_peak_in_array(env, start, len(env) - 2, threshold)
-
-
-def _envelope_at_led(env: np.ndarray, led: int, anchor: int | None = None) -> float:
-    """Peak envelope near this depth LED (1–50 mm axis)."""
-    if anchor is None:
-        anchor = _depth_anchor(env)
-    bin_idx = _bin_for_led(led, anchor)
-    lo = max(0, bin_idx - 4)
-    hi = min(len(env), bin_idx + 5)
+def _envelope_at_mm(env: np.ndarray, mm: int) -> float:
+    """Echo amplitude at this depth on the 1–50 mm bar."""
+    bin_idx = int(round(mm / MM_PER_BIN))
+    lo = max(0, bin_idx - 2)
+    hi = min(len(env), bin_idx + 3)
     if lo >= hi:
         return 0.0
     return float(np.max(env[lo:hi]))
 
 
-def _dial_fraction(slider: int) -> float:
-    """UI slider 0–50 → 0.0–1.0 software gain along the depth bar."""
-    if slider <= 0:
-        return 0.0
-    return min(1.0, int(slider) / float(SLIDER_MAX))
-
-
-def _envelope_threshold_mask(
-    env: np.ndarray,
-    gain_byte: int,
-    gain_index: int,
-    slider: int = 0,
-) -> list[bool]:
+def leds_for_echo(env: np.ndarray, slider: int) -> tuple[bool, ...]:
     """
-    1982 gain on cached echo: each LED lights only where echo beats threshold.
+    1982 flow on cached wand echo:
 
-    Gain up fills the bar; gain down peels LEDs off. Rightmost lit LED = depth mm.
+    gain 0 → dark
+    gain up → bar fills (all on at 50)
+    gain down → threshold rises, LEDs drop where echo is weak
     """
     if slider <= 0 or len(env) < 32:
-        return [False] * LED_COUNT
+        return EMPTY_LED_ON
     if float(np.max(env)) < 2.0:
-        return [False] * LED_COUNT
+        return EMPTY_LED_ON
+    if slider >= SLIDER_MAX:
+        return tuple([True] * LED_COUNT)
 
-    dial = _dial_fraction(slider)
-    if dial >= 0.98:
-        return [True] * LED_COUNT
-
-    anchor = _depth_anchor(env)
-    baseline = float(np.median(env[anchor : min(len(env), anchor + 16)]))
-    peak = float(np.max(env[anchor : min(len(env), anchor + 550)]))
+    dial = slider / float(SLIDER_MAX)
+    baseline = float(np.median(env[:16]))
+    peak = float(np.max(env))
     span = max(1.0, peak - baseline)
-    floor = baseline + 0.05 * span
-    threshold = peak - span * dial * 0.98
-    cut = max(floor, threshold)
+    cut = peak - span * dial * 0.98
 
     on = [False] * LED_COUNT
-    for led in range(1, LED_COUNT + 1):
-        if _envelope_at_led(env, led, anchor) > cut:
-            on[led - 1] = True
-    return on
+    for mm in range(1, LED_COUNT + 1):
+        if _envelope_at_mm(env, mm) > cut:
+            on[mm - 1] = True
+    return tuple(on)
 
 
-def _bar_full(led_on: list[bool], env: np.ndarray, gain_byte: int) -> bool:
-    """Bar full — all 50 LEDs lit at top gain."""
-    return sum(led_on) >= LED_COUNT - 2 and gain_byte >= FULL_BAR_GAIN_BYTE
+def reading_from_echo(env: np.ndarray, slider: int) -> ScaleReading:
+    led_on = leds_for_echo(env, slider)
+    lcd = rightmost_lit_led(led_on)
+    mm = float(lcd) if lcd > SKIN_LEDS and is_plausible_mm(float(lcd)) else None
+    return ScaleReading(mm, led_on)
 
 
-def leds_for_echo(
-    env: np.ndarray,
-    gain_byte: int,
-    gain_index: int,
-    slider: int = 0,
-) -> tuple[bool, ...]:
-    """Cached echo + software gain (slider) → which depth LEDs light."""
-    return tuple(_envelope_threshold_mask(env, gain_byte, gain_index, slider))
-
-
-def _mm_from_leds(led_on: list[bool], gain_index: int) -> float | None:
-    """Depth mm = rightmost lit LED past skin (1–3)."""
-    if gain_index <= 0:
-        return None
-    led = rightmost_lit_led(led_on)
-    if led <= SKIN_LEDS:
-        return None
-    mm = float(led)
-    return mm if is_plausible_mm(mm) else None
-
-
-def _reading_from_parts(
-    led_on: tuple[bool, ...],
-    gain_byte: int,
-    gain_index: int,
-    env: np.ndarray | None = None,
-) -> ScaleReading:
-    if gain_index <= 0 or gain_byte <= 0:
-        dark = tuple([False] * LED_COUNT)
-        return ScaleReading(None, dark, "gain0")
-
-    led_list = list(led_on)
-    mm = _mm_from_leds(led_list, gain_index)
-    if mm is not None:
-        method = f"depth@{mm:g}g{gain_byte}"
-    elif env is not None and _bar_full(led_list, env, gain_byte):
-        method = f"full-bar/g{gain_byte}"
-    elif sum(led_on) == 0:
-        method = f"no-signal/g{gain_byte}"
-    else:
-        method = f"gain{gain_index}/lit{sum(led_on)}g{gain_byte}"
-    return ScaleReading(mm, led_on, method)
-
-
-def reading_from_led_on(
-    led_on: tuple[bool, ...],
-    gain_byte: int,
-    gain_index: int = DEFAULT_GAIN_INDEX,
-    env: np.ndarray | None = None,
-) -> ScaleReading:
-    return _reading_from_parts(led_on, gain_byte, gain_index, env)
-
-
-def reading_from_echo(
-    env: np.ndarray,
-    gain_byte: int,
-    gain_index: int,
-    slider: int = 0,
-) -> ScaleReading:
-    """Software gain on cached echo → LED bar; LCD = rightmost lit."""
-    led_on = leds_for_echo(env, gain_byte, gain_index, slider)
-    return reading_from_led_on(led_on, gain_byte, gain_index, env)
-
-
-def scale_reading_from_payload(
-    payload: bytes,
-    gain_byte: int = 0,
-    gain_index: int = DEFAULT_GAIN_INDEX,
-    slider: int = 0,
-) -> ScaleReading | None:
-    """
-    Wand packet at this gain → echo threshold → LEDs → depth mm.
-
-    gain_byte is sent to the wand before read; it shapes echo amplitude.
-    """
-    if not is_bodyview_bx_packet(payload):
-        return None
-    if is_placeholder_payload(payload):
+def scale_reading_from_payload(payload: bytes, slider: int = 0) -> ScaleReading | None:
+    if not is_bodyview_bx_packet(payload) or is_placeholder_payload(payload):
         return None
     try:
         env = envelope_from_payload(payload)
     except ValueError:
         return None
-
-    return reading_from_echo(env, gain_byte, gain_index, slider)
+    return reading_from_echo(env, slider)
 
 
 def scale_mm_from_payload(
@@ -291,25 +116,9 @@ def scale_mm_from_payload(
     gain_byte: int = 0,
     gain_index: int = DEFAULT_GAIN_INDEX,
 ) -> float | None:
-    reading = scale_reading_from_payload(payload, gain_byte, gain_index)
+    slider = slider_for_gain_index(gain_index) if gain_index else 0
+    reading = scale_reading_from_payload(payload, slider=slider)
     return reading.mm if reading else None
-
-
-def led_level(mm: float | None) -> int:
-    if mm is None:
-        return 0
-    return max(0, min(LED_COUNT, int(round(mm))))
-
-
-def reading_hint(reading: ScaleReading) -> str:
-    if reading.mm is not None:
-        return f"{reading.mm:g} mm — HOLD to lock"
-    if sum(reading.led_on) >= LED_COUNT - 2:
-        return "Bar full — slide gain down to fascia"
-    if sum(reading.led_on) == 0:
-        return "Slider left — no LEDs. Slide right to light the bar."
-    lit = sum(reading.led_on)
-    return f"{lit} LEDs lit — slide to tune"
 
 
 @dataclass
@@ -321,7 +130,7 @@ class ScanScaleState:
     locked: bool = False
     locked_mm: float | None = None
     live_mm: float | None = None
-    led_on: tuple[bool, ...] = ()
+    led_on: tuple[bool, ...] = EMPTY_LED_ON
     message: str = ""
 
     @property
@@ -332,10 +141,6 @@ class ScanScaleState:
         self.slider = max(0, min(int(slider), SLIDER_MAX))
         self.gain_index = gain_index_for_slider(self.slider)
 
-    def set_gain_index(self, index: int) -> None:
-        self.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
-        self.slider = slider_for_gain_index(self.gain_index)
-
     def to_dict(self) -> dict:
         mm = self.locked_mm if self.locked else self.live_mm
         return {
@@ -345,14 +150,11 @@ class ScanScaleState:
             "gain_index": self.gain_index,
             "slider": self.slider,
             "slider_max": SLIDER_MAX,
-            "gain_steps": len(GAIN_STEPS),
             "locked": self.locked,
             "mm": mm,
             "live_mm": self.live_mm,
             "locked_mm": self.locked_mm,
-            "led_on": list(self.led_on) if len(self.led_on) >= LED_COUNT else list(EMPTY_LED_ON),
+            "led_on": list(self.led_on),
             "lcd": rightmost_lit_led(self.led_on),
-            "led_level": led_level(mm),
-            "led_max": LED_COUNT,
             "message": self.message,
         }

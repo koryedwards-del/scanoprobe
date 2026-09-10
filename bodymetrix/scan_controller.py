@@ -77,15 +77,6 @@ class ScanController:
         self._state.led_on = reading.led_on
         self._state.live_mm = reading.mm
 
-    def _reset(self) -> None:
-        self._last_env = None
-        self._state.locked = False
-        self._state.locked_mm = None
-        self._state.set_slider(0)
-        self._state.led_on = EMPTY_LED_ON
-        self._state.live_mm = None
-        self._pending_new_send = True
-
     def begin(self, site: int) -> dict[str, Any]:
         self._last_env = None
         self._pending_new_send = False

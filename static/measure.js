@@ -13,6 +13,8 @@ const LED_COUNT = 50;
 const MM_PER_BIN = 0.1;
 const $ = (sel) => document.querySelector(sel);
 
+const SKIN_LEDS = 3;
+
 function rightmostLitLed(ledOn) {
   if (!Array.isArray(ledOn) || ledOn.length < LED_COUNT) return 0;
   for (let i = LED_COUNT - 1; i >= 0; i--) {
@@ -21,21 +23,59 @@ function rightmostLitLed(ledOn) {
   return 0;
 }
 
+function borderLed(ledOn) {
+  if (!Array.isArray(ledOn) || ledOn.length < LED_COUNT) return 0;
+  const right = rightmostLitLed(ledOn);
+  if (right <= SKIN_LEDS) return 0;
+  for (let i = SKIN_LEDS; i < right - 1; i++) {
+    if (!ledOn[i]) return right;
+  }
+  return 0;
+}
+
 function formatLcd(state) {
   const fromState = state.lcd;
   if (fromState != null && fromState > 0) return String(fromState);
-  const pos = rightmostLitLed(state.led_on);
+  const pos = borderLed(state.led_on);
   return pos > 0 ? String(pos) : "—";
 }
 
-function envelopeAtMm(env, mm) {
-  const binIdx = Math.round(mm / MM_PER_BIN);
-  const lo = Math.max(0, binIdx - 2);
-  const hi = Math.min(env.length, binIdx + 3);
-  if (lo >= hi) return 0;
+function findSkinPeakBin(env) {
+  const head = env.slice(0, Math.max(16, Math.floor(env.length / 32)));
+  const sorted = head.slice().sort((a, b) => a - b);
+  const baseline = sorted[Math.floor(sorted.length / 2)] ?? 0;
   let peak = 0;
-  for (let i = lo; i < hi; i++) peak = Math.max(peak, env[i]);
-  return peak;
+  for (let i = 0; i < env.length; i++) peak = Math.max(peak, env[i]);
+  const threshold = baseline + 0.08 * (peak - baseline);
+  const end = Math.min(env.length - 2, Math.round(3.0 / MM_PER_BIN) + 50);
+  for (let i = 5; i < end; i++) {
+    if (env[i] < threshold) continue;
+    if (env[i] >= env[i - 1] && env[i] >= env[i + 1]) return i;
+  }
+  return null;
+}
+
+function depthAnchor(skinBin) {
+  return Math.max(0, skinBin - Math.round(2.0 / MM_PER_BIN));
+}
+
+function envelopeAtMm(env, mm, anchor) {
+  const binIdx = anchor + Math.round(mm / MM_PER_BIN);
+  const lo = Math.max(0, binIdx - 3);
+  const hi = Math.min(env.length, binIdx + 4);
+  if (lo >= hi) return 0;
+  let amp = 0;
+  for (let i = lo; i < hi; i++) amp = Math.max(amp, env[i]);
+  return amp;
+}
+
+function gainCut(env, anchor, skinAmp, dial) {
+  const tail = env.slice(anchor, Math.min(env.length, anchor + 550));
+  const use = tail.length >= 8 ? tail : env;
+  const head = use.slice(0, Math.max(8, Math.floor(use.length / 8))).sort((a, b) => a - b);
+  const baseline = head[Math.floor(head.length / 2)] ?? 0;
+  const floor = Math.min(skinAmp, baseline + 0.05 * Math.max(1, skinAmp - baseline));
+  return floor + (1 - dial) * Math.max(0, skinAmp - floor) * 0.98;
 }
 
 function ledsForEcho(env, slider) {
@@ -47,14 +87,21 @@ function ledsForEcho(env, slider) {
   if (peak < 2) return off;
   if (slider >= SLIDER_MAX) return Array(LED_COUNT).fill(true);
 
+  const skinBin = findSkinPeakBin(env);
+  let anchor = 0;
+  let skinAmp = Math.max(...env.slice(0, Math.max(32, Math.floor(env.length / 16))));
+  if (skinBin != null) {
+    anchor = depthAnchor(skinBin);
+    const lo = Math.max(0, skinBin - 3);
+    const hi = Math.min(env.length, skinBin + 4);
+    skinAmp = Math.max(...env.slice(lo, hi));
+  }
+
   const dial = slider / SLIDER_MAX;
-  const head = env.slice(0, 16).sort((a, b) => a - b);
-  const baseline = head[Math.floor(head.length / 2)] ?? 0;
-  const span = Math.max(1, peak - baseline);
-  const cut = peak - span * dial * 0.98;
+  const cut = gainCut(env, anchor, skinAmp, dial);
 
   for (let mm = 1; mm <= LED_COUNT; mm++) {
-    if (envelopeAtMm(env, mm) > cut) off[mm - 1] = true;
+    if (envelopeAtMm(env, mm, anchor) > cut) off[mm - 1] = true;
   }
   return off;
 }
@@ -108,7 +155,7 @@ function applyLocalGain(val) {
   }
   const ledOn = ledsForEcho(cachedEnvelope, val);
   renderLeds(ledOn);
-  const lcd = rightmostLitLed(ledOn);
+  const lcd = borderLed(ledOn);
   $("#mm").textContent = lcd > 0 ? String(lcd) : "—";
 }
 

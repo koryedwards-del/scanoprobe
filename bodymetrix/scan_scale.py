@@ -1,4 +1,4 @@
-"""Scanoprobe 0–50 LED scale — follow the 1982 flow."""
+"""Scanoprobe 0–50 LED scale — echo + gain, no imposed pattern."""
 
 from __future__ import annotations
 
@@ -6,7 +6,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from bodymetrix.bvalgo import MM_PER_BIN, envelope_from_payload
+from bodymetrix.bvalgo import (
+    MM_PER_BIN,
+    PEAK_SEARCH_START_BIN,
+    envelope_from_payload,
+    find_first_peak_in_array,
+)
 from bodymetrix.bodyview_parse import is_bodyview_bx_packet
 from bodymetrix.mm_bounds import SKIN_THICKNESS_MM, is_plausible_mm
 from bodymetrix.scanoprobe import is_placeholder_payload
@@ -50,29 +55,79 @@ def rightmost_lit_led(led_on: tuple[bool, ...] | list[bool]) -> int:
     return 0
 
 
+def border_led(led_on: tuple[bool, ...] | list[bool]) -> int:
+    """
+    f/m border depth — rightmost lit LED past skin, only after a dark fat gap.
+
+    Thin fat may show four dark LEDs then one solid border; thicker sites show
+    a longer dark run. No fixed gap length — the echo sets how many stay dark.
+    """
+    if not led_on or len(led_on) < LED_COUNT:
+        return 0
+    right = rightmost_lit_led(led_on)
+    if right <= SKIN_LEDS:
+        return 0
+    # Require at least one dark LED between skin (1–3) and the border.
+    for i in range(SKIN_LEDS, right - 1):
+        if not led_on[i]:
+            return right
+    return 0
+
+
 @dataclass(frozen=True)
 class ScaleReading:
     mm: float | None
     led_on: tuple[bool, ...]
 
 
-def _envelope_at_mm(env: np.ndarray, mm: int) -> float:
-    """Echo amplitude at this depth on the 1–50 mm bar."""
-    bin_idx = int(round(mm / MM_PER_BIN))
-    lo = max(0, bin_idx - 2)
-    hi = min(len(env), bin_idx + 3)
+def _find_skin_peak_bin(env: np.ndarray) -> int | None:
+    """First tissue peak in the wand echo — skin resistance on contact."""
+    head = env[: max(16, len(env) // 32)]
+    baseline = float(np.median(head))
+    span = max(1.0, float(np.max(env)) - baseline)
+    threshold = baseline + 0.08 * span
+    skin_search = int(round(SKIN_THICKNESS_MM / MM_PER_BIN)) + 50
+    return find_first_peak_in_array(
+        env, PEAK_SEARCH_START_BIN, min(len(env) - 2, skin_search), threshold
+    )
+
+
+def _depth_anchor(skin_bin: int) -> int:
+    """Map measured skin peak to the 1–3 LED zone (skin reading = source of truth)."""
+    return max(0, skin_bin - int(round(2.0 / MM_PER_BIN)))
+
+
+def _envelope_at_mm(env: np.ndarray, mm: int, anchor: int) -> float:
+    bin_idx = anchor + int(round(mm / MM_PER_BIN))
+    lo = max(0, bin_idx - 3)
+    hi = min(len(env), bin_idx + 4)
     if lo >= hi:
         return 0.0
     return float(np.max(env[lo:hi]))
 
 
+def _gain_cut(env: np.ndarray, anchor: int, skin_amp: float, dial: float) -> float:
+    """
+    Threshold from skin resistance upward.
+
+    Low gain  → cut ≈ skin amplitude (only 1–2–3 stay lit)
+    Gain up   → cut drops; next density lights; fat gap stays dark
+    Too high  → cut reaches weak fat echoes (pinch LEDs light — back off)
+    """
+    tail = env[anchor : min(len(env), anchor + 550)]
+    if len(tail) < 8:
+        tail = env
+    baseline = float(np.median(tail[: max(8, len(tail) // 8)]))
+    floor = min(skin_amp, baseline + 0.05 * max(1.0, skin_amp - baseline))
+    return floor + (1.0 - dial) * max(0.0, skin_amp - floor) * 0.98
+
+
 def leds_for_echo(env: np.ndarray, slider: int) -> tuple[bool, ...]:
     """
-    1982 flow on cached wand echo:
+    LEDs mirror the echo at each mm depth. No pattern imposed.
 
-    gain 0 → dark
-    gain up → bar fills (all on at 50)
-    gain down → threshold rises, LEDs drop where echo is weak
+    Wand on skin: low gain lights 1–2–3 (resistance), dark fat gap, border
+    lights as gain opens. Too much gain lights the fat gap too.
     """
     if slider <= 0 or len(env) < 32:
         return EMPTY_LED_ON
@@ -81,23 +136,30 @@ def leds_for_echo(env: np.ndarray, slider: int) -> tuple[bool, ...]:
     if slider >= SLIDER_MAX:
         return tuple([True] * LED_COUNT)
 
+    skin_bin = _find_skin_peak_bin(env)
+    if skin_bin is None:
+        anchor = 0
+        skin_amp = float(np.max(env[: max(32, len(env) // 16)]))
+    else:
+        anchor = _depth_anchor(skin_bin)
+        lo = max(0, skin_bin - 3)
+        hi = min(len(env), skin_bin + 4)
+        skin_amp = float(np.max(env[lo:hi]))
+
     dial = slider / float(SLIDER_MAX)
-    baseline = float(np.median(env[:16]))
-    peak = float(np.max(env))
-    span = max(1.0, peak - baseline)
-    cut = peak - span * dial * 0.98
+    cut = _gain_cut(env, anchor, skin_amp, dial)
 
     on = [False] * LED_COUNT
     for mm in range(1, LED_COUNT + 1):
-        if _envelope_at_mm(env, mm) > cut:
+        if _envelope_at_mm(env, mm, anchor) > cut:
             on[mm - 1] = True
     return tuple(on)
 
 
 def reading_from_echo(env: np.ndarray, slider: int) -> ScaleReading:
     led_on = leds_for_echo(env, slider)
-    lcd = rightmost_lit_led(led_on)
-    mm = float(lcd) if lcd > SKIN_LEDS and is_plausible_mm(float(lcd)) else None
+    border = border_led(led_on)
+    mm = float(border) if border > 0 and is_plausible_mm(float(border)) else None
     return ScaleReading(mm, led_on)
 
 
@@ -155,6 +217,6 @@ class ScanScaleState:
             "live_mm": self.live_mm,
             "locked_mm": self.locked_mm,
             "led_on": list(self.led_on),
-            "lcd": rightmost_lit_led(self.led_on),
+            "lcd": border_led(self.led_on),
             "message": self.message,
         }

@@ -1,4 +1,4 @@
-/** Scanoprobe — slider 0–50 lights LEDs; LCD = rightmost lit LED. */
+/** Scanoprobe — gain slider = wand amplitude; LEDs/LCD from echo at that gain. */
 
 let pollTimer = null;
 let lastSlider = 0;
@@ -20,10 +20,7 @@ function formatLcd(state) {
   const fromState = state.lcd;
   if (fromState != null && fromState > 0) return String(fromState);
   const pos = rightmostLitLed(state.led_on);
-  if (pos > 0) return String(pos);
-  const slider = state.slider ?? 0;
-  if (slider > 0) return String(slider);
-  return "—";
+  return pos > 0 ? String(pos) : "—";
 }
 
 async function api(path, body) {
@@ -106,14 +103,12 @@ async function setGainSlider(sliderVal, readWand = false) {
   const slider = $("#gain-slider");
   if (slider) slider.value = String(val);
   $("#gain-label").textContent = `GAIN ${val}`;
-  $("#mm").textContent = val > 0 ? String(val) : "—";
   try {
     const body = readWand ? { slider: val, read: true } : { slider: val };
     render(await api("/api/scan/gain", body));
   } catch {
     if (slider) slider.value = String(prev);
     $("#gain-label").textContent = `GAIN ${prev}`;
-    $("#mm").textContent = prev > 0 ? String(prev) : "—";
   } finally {
     gainBusy = false;
   }

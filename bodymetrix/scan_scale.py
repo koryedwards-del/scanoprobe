@@ -191,9 +191,8 @@ def _reading_from_parts(
     gain_byte: int,
     gain_index: int,
     env: np.ndarray | None = None,
-    slider: int = 0,
 ) -> ScaleReading:
-    if slider <= 0:
+    if gain_index <= 0 or gain_byte <= 0:
         dark = tuple([False] * LED_COUNT)
         return ScaleReading(None, dark, False, 0, "gain0")
 
@@ -217,31 +216,29 @@ def reading_from_led_on(
     gain_byte: int,
     gain_index: int = DEFAULT_GAIN_INDEX,
     env: np.ndarray | None = None,
-    slider: int = 0,
 ) -> ScaleReading:
-    return _reading_from_parts(led_on, gain_byte, gain_index, env, slider)
+    return _reading_from_parts(led_on, gain_byte, gain_index, env)
 
 
-def reading_for_slider(
-    slider: int,
-    gain_byte: int = 0,
-    gain_index: int = DEFAULT_GAIN_INDEX,
-    env: np.ndarray | None = None,
+def reading_from_echo(
+    env: np.ndarray,
+    gain_byte: int,
+    gain_index: int,
 ) -> ScaleReading:
-    led_on = leds_for_slider(slider)
-    return _reading_from_parts(led_on, gain_byte, gain_index, env, slider)
+    """Gain amplitude + cached echo → LED bar; LCD = rightmost lit."""
+    led_on = leds_for_echo(env, gain_byte, gain_index)
+    return reading_from_led_on(led_on, gain_byte, gain_index, env)
 
 
 def scale_reading_from_payload(
     payload: bytes,
     gain_byte: int = 0,
     gain_index: int = DEFAULT_GAIN_INDEX,
-    slider: int = 0,
 ) -> ScaleReading | None:
     """
-    Wand packet at this gain → LED pattern → mm when three fat LEDs remain.
+    Wand packet at this gain → echo threshold → LEDs → mm when three fat LEDs.
 
-    gain_byte is sent to the wand before read; it shapes the packet.
+    gain_byte is sent to the wand before read; it shapes echo amplitude.
     """
     if not is_bodyview_bx_packet(payload):
         return None
@@ -252,7 +249,7 @@ def scale_reading_from_payload(
     except ValueError:
         return None
 
-    return reading_for_slider(slider, gain_byte, gain_index, env)
+    return reading_from_echo(env, gain_byte, gain_index)
 
 
 def scale_mm_from_payload(

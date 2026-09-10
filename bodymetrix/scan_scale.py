@@ -151,19 +151,15 @@ def _led_mask(
     return mask
 
 
-def led_mask_for_gain(
+def led_mask_from_echo(
+    env: np.ndarray,
+    gain_byte: int,
     gain_index: int,
     peak_gain_index: int,
-    env: np.ndarray | None = None,
-    gain_byte: int = 0,
 ) -> tuple[bool, ...]:
-    """LED pattern from gain alone (used when USB read fails)."""
+    """LEDs only when SEND returns echo — gain amplifies what the transducer sees."""
     bracket_mode = bracket_mode_active(gain_index, peak_gain_index)
-    if env is not None and len(env) > 0:
-        return tuple(
-            _led_mask(env, gain_byte, gain_index, bracket_mode)
-        )
-    return tuple(_progressive_fill_mask(gain_index))
+    return tuple(_led_mask(env, gain_byte, gain_index, bracket_mode))
 
 
 def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
@@ -260,7 +256,7 @@ def reading_hint(reading: ScaleReading) -> str:
     if reading.fat_leds_lit >= LED_COUNT - SKIN_LEDS - 2:
         return "Bar full — dial − to bracket"
     if reading.fat_leds_lit == 0:
-        return "No fat signal — dial + gain"
+        return "No LEDs at this gain — hold SEND, press +"
     return "Dial gain to three-LED bracket"
 
 
@@ -281,13 +277,6 @@ class ScanScaleState:
     def gain(self) -> int:
         return gain_at_index(self.gain_index)
 
-    @property
-    def resolved_led_on(self) -> tuple[bool, ...]:
-        """Always return 50 entries — gain fill when USB has not set leds yet."""
-        if len(self.led_on) >= LED_COUNT:
-            return self.led_on
-        return led_mask_for_gain(self.gain_index, self.peak_gain_index)
-
     def to_dict(self) -> dict:
         mm = self.locked_mm if self.locked else self.live_mm
         return {
@@ -301,7 +290,7 @@ class ScanScaleState:
             "mm": mm,
             "live_mm": self.live_mm,
             "locked_mm": self.locked_mm,
-            "led_on": list(self.resolved_led_on),
+            "led_on": list(self.led_on) if len(self.led_on) >= LED_COUNT else list(EMPTY_LED_ON),
             "led_level": led_level(mm),
             "led_max": LED_COUNT,
             "message": self.message,

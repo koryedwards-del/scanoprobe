@@ -49,7 +49,7 @@ Never run `.venv/bin/python …` from `~` (home) — that folder has no `.venv`.
 
 ## Wand hardware (reset — verified)
 
-**What it is:** BodyMetrix / SCANOPROBE **BX-family USB probe** — handheld transducer, not a self-contained display unit.
+**What it is:** BodyMetrix / SCANOPROBE **BX-family USB probe** — handheld **simple transducer** (1982 Scanoprobe lineage), not a self-contained display unit.
 
 **What it looks like:**
 - Silver body, blue accents, **BodyMetrix BX 2000** labeling (same product line)
@@ -67,6 +67,8 @@ Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired)
 **Connection to Mac:** Wand is **USB-A**. User connects via **Apple USB‑A → USB‑C dongle** to the Mac. (Verified setup — not a project requirement, just this machine.)
 
 **On SEND:** wand sends ultrasound data to the Mac over USB. Communication works; **interpretation in software** is what we are fixing.
+
+**Like the original Scanoprobe:** the transducer only has **SEND**. **No LEDs light without gain** — even with SEND held, gain 0 is dark; **gain +** amplifies the echo until the 0–50 bar fills. Software must match that (no fake LEDs without SEND + gain on a real echo).
 
 ### LED scale workflow (locked — Kory, years of use)
 

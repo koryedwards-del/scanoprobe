@@ -1,10 +1,7 @@
-/** Scanoprobe — slider 0–50 directly lights that many LEDs; HOLD locks mm. */
+/** Scanoprobe — slider 0–50 lights LEDs; LCD = rightmost lit LED. */
 
 let pollTimer = null;
-let lastGainIndex = 0;
 let lastSlider = 0;
-let maxGainIndex = 127;
-let gainRepeatTimer = null;
 let gainBusy = false;
 let sliderDragging = false;
 
@@ -51,76 +48,35 @@ function ensureLedBar() {
   }
 }
 
-function renderLeds(state, gainChanged) {
+function renderLeds(state) {
   const bar = $("#led-bar");
   if (!bar) return;
-  const mm = state.locked
-    ? state.mm ?? state.locked_mm
-    : state.live_mm ?? (state.bracket ? state.mm : null);
   const ledOn = state.led_on;
-  const center = mm != null ? Math.round(mm) : 0;
-  const b1 = center - 1;
-  const b2 = center;
-  const b3 = center + 1;
 
   bar.querySelectorAll(".led").forEach((el, i) => {
-    const n = i + 1;
     el.className = "led";
     const on = Array.isArray(ledOn) && ledOn.length >= 50 ? !!ledOn[i] : false;
     if (on) el.classList.add("on");
-    if (center >= 2 && (n === b1 || n === b2 || n === b3)) {
-      if (n === b2) el.classList.add("bracket-core");
-      else el.classList.add("bracket-edge");
-      if (gainChanged && (n === b1 || n === b3)) el.classList.add("bounce");
-    }
   });
 }
 
-function syncGainSlider(state, locked) {
+function syncGainSlider(state) {
   const slider = $("#gain-slider");
   if (!slider || sliderDragging) return;
   slider.max = String(state.slider_max ?? SLIDER_MAX);
   const pos = state.slider ?? 0;
   slider.value = String(pos);
-  slider.disabled = locked;
   lastSlider = pos;
 }
 
-function render(state, gainChanged = false) {
-  const mm = state.locked
-    ? state.mm ?? state.locked_mm
-    : state.live_mm ?? (state.bracket ? state.mm : null);
-  const locked = !!state.locked;
+function render(state) {
   const sliderPos = state.slider ?? 0;
-
-  if (state.gain_steps != null) {
-    maxGainIndex = Math.max(0, state.gain_steps - 1);
-  }
 
   $("#mm").textContent = formatLcd(state);
   $("#gain-label").textContent = `GAIN ${sliderPos}`;
-  $("#device").classList.toggle("locked", locked);
 
-  const holdBtn = $("#hold");
-  holdBtn.classList.toggle("locked", locked);
-  holdBtn.disabled = false;
-  $("#gain-down").disabled = locked;
-  $("#gain-up").disabled = locked;
-  syncGainSlider(state, locked);
-
-  const liveWrap = $("#live-wrap");
-  if (liveWrap && !locked) {
-    liveWrap.innerHTML = 'LIVE <span class="live-dot" id="live-dot"></span>';
-  }
-
-  renderLeds(state, gainChanged && !locked);
-
-  const status = $("#status-message");
-  if (status && state.message) {
-    status.textContent = state.message;
-  }
-
-  if (state.gain_index != null) lastGainIndex = state.gain_index;
+  syncGainSlider(state);
+  renderLeds(state);
   lastSlider = sliderPos;
 }
 
@@ -135,7 +91,7 @@ function startPoll() {
   stopPoll();
   pollTimer = setInterval(async () => {
     try {
-      render(await api("/api/scan/tick"), false);
+      render(await api("/api/scan/tick"));
     } catch {
       /* waiting for SEND */
     }
@@ -153,84 +109,14 @@ async function setGainSlider(sliderVal, readWand = false) {
   $("#mm").textContent = val > 0 ? String(val) : "—";
   try {
     const body = readWand ? { slider: val, read: true } : { slider: val };
-    const state = await api("/api/scan/gain", body);
-    render(state, state.slider !== prev);
-  } catch (err) {
-    const status = $("#status-message");
-    if (status) status.textContent = err.message || "Gain failed";
+    render(await api("/api/scan/gain", body));
+  } catch {
     if (slider) slider.value = String(prev);
     $("#gain-label").textContent = `GAIN ${prev}`;
+    $("#mm").textContent = prev > 0 ? String(prev) : "—";
   } finally {
     gainBusy = false;
   }
-}
-
-async function nudgeGain(delta, readWand = false) {
-  const slider = $("#gain-slider");
-  const cur = slider ? parseInt(slider.value, 10) : lastSlider;
-  await setGainSlider(cur + delta, readWand);
-}
-
-function stopGainRepeat() {
-  if (gainRepeatTimer) {
-    clearInterval(gainRepeatTimer);
-    gainRepeatTimer = null;
-  }
-}
-
-function startGainRepeat(delta) {
-  stopPoll();
-  stopGainRepeat();
-  nudgeGain(delta, false).catch((err) => {
-    const status = $("#status-message");
-    if (status) status.textContent = err.message || "Gain failed";
-  });
-  gainRepeatTimer = setInterval(() => {
-    nudgeGain(delta, false).catch((err) => {
-      const status = $("#status-message");
-      if (status) status.textContent = err.message || "Gain failed";
-    });
-  }, 180);
-}
-
-async function finishGainDial() {
-  const slider = $("#gain-slider");
-  const val = slider ? slider.value : lastSlider;
-  try {
-    await setGainSlider(val, true);
-  } catch {
-    try {
-      render(await api("/api/scan/tick"), true);
-    } catch {
-      /* SEND not held */
-    }
-  }
-}
-
-function bindGainButton(btn, delta) {
-  if (!btn) return;
-  let holding = false;
-
-  const onDown = (e) => {
-    e.preventDefault();
-    if (btn.disabled || holding) return;
-    holding = true;
-    startGainRepeat(delta);
-  };
-  const onUp = async () => {
-    if (!holding) return;
-    holding = false;
-    stopGainRepeat();
-    if ($("#new-btn")?.classList.contains("hidden")) {
-      await finishGainDial();
-      startPoll();
-    }
-  };
-
-  btn.addEventListener("pointerdown", onDown);
-  btn.addEventListener("pointerup", onUp);
-  btn.addEventListener("pointerleave", onUp);
-  btn.addEventListener("pointercancel", onUp);
 }
 
 function bindGainSlider() {
@@ -240,20 +126,16 @@ function bindGainSlider() {
   const onStart = () => {
     sliderDragging = true;
     stopPoll();
-    stopGainRepeat();
   };
 
   const onInput = () => {
-    if (slider.disabled) return;
     setGainSlider(slider.value, false);
   };
 
   const onEnd = async () => {
     if (!sliderDragging) return;
     sliderDragging = false;
-    if (slider.disabled) return;
     await setGainSlider(slider.value, true);
-    if (!$("#new-btn")?.classList.contains("hidden")) return;
     startPoll();
   };
 
@@ -281,14 +163,10 @@ async function refreshProbe() {
 }
 
 async function beginSession() {
-  $("#new-btn")?.classList.add("hidden");
   stopPoll();
-  stopGainRepeat();
   sliderDragging = false;
-  lastGainIndex = 0;
   lastSlider = 0;
-  const state = await api("/api/scan/begin");
-  render(state);
+  render(await api("/api/scan/begin"));
   startPoll();
 }
 
@@ -296,39 +174,7 @@ async function init() {
   ensureLedBar();
   await refreshProbe();
   await beginSession();
-
   bindGainSlider();
-  bindGainButton($("#gain-down"), -1);
-  bindGainButton($("#gain-up"), 1);
-
-  document.addEventListener("keydown", (e) => {
-    if (!$("#new-btn")?.classList.contains("hidden")) return;
-    if (e.key === "-" || e.key === "_") {
-      e.preventDefault();
-      nudgeGain(-1, true);
-    } else if (e.key === "=" || e.key === "+") {
-      e.preventDefault();
-      nudgeGain(1, true);
-    }
-  });
-
-  $("#hold")?.addEventListener("click", async () => {
-    try {
-      const state = await api("/api/scan/hold");
-      render(state);
-      if (state.locked) {
-        stopPoll();
-        $("#new-btn")?.classList.remove("hidden");
-      } else {
-        $("#new-btn")?.classList.add("hidden");
-        startPoll();
-      }
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  $("#new-btn")?.addEventListener("click", () => beginSession());
 }
 
 init();

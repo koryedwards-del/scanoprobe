@@ -12,7 +12,7 @@ Lock-in doc. Verified on Kory's iMac, Sep 2026.
 
 **Run the app:** double-click `Start Scanoprobe.command` in Finder.
 
-**Terminal:** always go to the project folder first:
+**Terminal:** Kory starts a **clean Terminal** each time. **Every command block must begin with:**
 
 ```bash
 cd ~/scanoprobe

@@ -6,6 +6,22 @@ Lock-in doc. Verified on Kory's iMac, Sep 2026.
 
 ---
 
+## On Kory's Mac
+
+**Project folder:** `~/scanoprobe` (home folder — **not** Desktop)
+
+**Run the app:** double-click `Start Scanoprobe.command` in Finder.
+
+**Terminal:** always go to the project folder first:
+
+```bash
+cd ~/scanoprobe
+```
+
+Never run `.venv/bin/python …` from `~` (home) — that folder has no `.venv`.
+
+---
+
 ## How we work
 
 1. **Simple first** — try the smallest thing that could work before adding layers. Same code path that already worked beats a clever rewrite. No extra tools, abstractions, or delivery paths unless the simple one fails.
@@ -62,3 +78,17 @@ SEND held
 ```
 
 **Do not** use header byte 3 as mm — it is not the thickness (e.g. `04` → 4.0 mm is wrong). Thickness comes from envelope peak depth × 0.1 mm/bin via `bodyview_packet_to_mm`.
+
+---
+
+## Status (Sep 2026)
+
+| Layer | State |
+|-------|--------|
+| UI (LED bar, gain, HOLD) | Working |
+| USB + tick loop | Working |
+| mm decode | Not accurate — needs capture + validate against research |
+
+**BodyView:** expired, reference only. **B&B:** retired.
+
+**Next:** one raw capture while holding SEND → paste hex → align decode to research (two peaks, sample index, 1400 m/s fat).

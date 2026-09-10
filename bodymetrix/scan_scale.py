@@ -44,6 +44,7 @@ GAIN_STEPS: tuple[int, ...] = (
 DEFAULT_GAIN_INDEX = 0
 # Top gain steps fill all 50 LEDs (+ on dial); dialing − collapses to 3-LED bracket.
 FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 4
+EMPTY_LED_ON: tuple[bool, ...] = tuple([False] * LED_COUNT)
 
 
 def gain_at_index(index: int) -> int:
@@ -280,6 +281,13 @@ class ScanScaleState:
     def gain(self) -> int:
         return gain_at_index(self.gain_index)
 
+    @property
+    def resolved_led_on(self) -> tuple[bool, ...]:
+        """Always return 50 entries — gain fill when USB has not set leds yet."""
+        if len(self.led_on) >= LED_COUNT:
+            return self.led_on
+        return led_mask_for_gain(self.gain_index, self.peak_gain_index)
+
     def to_dict(self) -> dict:
         mm = self.locked_mm if self.locked else self.live_mm
         return {
@@ -293,7 +301,7 @@ class ScanScaleState:
             "mm": mm,
             "live_mm": self.live_mm,
             "locked_mm": self.locked_mm,
-            "led_on": list(self.led_on),
+            "led_on": list(self.resolved_led_on),
             "led_level": led_level(mm),
             "led_max": LED_COUNT,
             "message": self.message,

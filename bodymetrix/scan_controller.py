@@ -38,7 +38,7 @@ class ScanController:
             site=site,
             gain_index=DEFAULT_GAIN_INDEX,
             led_on=EMPTY_LED_ON,
-            message="Gel + hold SEND — no LEDs without gain. Press + to fill bar.",
+            message="Gel + skin — no LEDs without gain. BX: hold SEND. Press +.",
         )
         self._probe.ensure_session()
         return self._state.to_dict()
@@ -118,11 +118,11 @@ class ScanController:
             self._state.live_mm = None
             if is_placeholder_payload(capture.payload):
                 self._state.message = (
-                    "Hold SEND on gel — LEDs need gain. Press + while holding SEND."
+                    "No echo yet — gel, skin contact, BX: hold SEND, then press +."
                 )
             else:
                 self._state.message = (
-                    "Hold SEND + press + — no LEDs without gain on the echo."
+                    "No LEDs without gain — press + while probe is on skin."
                 )
 
         return self._state.to_dict()

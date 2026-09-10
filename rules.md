@@ -49,30 +49,35 @@ Never run `.venv/bin/python …` from `~` (home) — that folder has no `.venv`.
 
 ## Wand hardware (reset — verified)
 
-**What it is:** BodyMetrix / SCANOPROBE **BX-family USB probe** — handheld **simple transducer** (1982 Scanoprobe lineage), not a self-contained display unit.
+**What it is:** BodyMetrix **BX-family USB probe** (BX 2000) — handheld transducer on the Mac. Not the same box as the **1982 Scanoprobe** (see below).
 
 **What it looks like:**
 - Silver body, blue accents, **BodyMetrix BX 2000** labeling (same product line)
 - **Blue transducer face** at the bottom (contacts skin with gel)
 - **Black cable** from the top → **USB** to the Mac
 
-**Physical controls — one only:**
-- **One side button** (easy-reach thumb button) = **SEND**
+**Physical controls (BX 2000 — Kory's wand today):**
+- **One side button** (thumb) = **SEND** (triggers USB echo burst)
 
-**NOT on the wand (software only):**
+**1982 Scanoprobe (original — what the LED workflow copies):**
+- **Simple transducer** — **no SEND button**, no LCD, no LED bar on the unit
+- **No LEDs without gain** — contact on skin + turn gain up until the bar fills; gain down to bracket; then read mm
+- Our **Mac screen** reproduces that gain/LED/mm workflow; the **BX wand** adds SEND because USB needs a trigger
+
+**NOT on the BX wand (software only):**
 - No LCD, no mm readout, no 0–50 LED bar, no gain +/−, no hold switch, no view toggle
 
 Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired) — SCANOPROBE-style UI driven from the waveform bytes. Gain +/−, mm, LEDs, waveform, 2D view = **screen**, not hardware.
 
 **Connection to Mac:** Wand is **USB-A**. User connects via **Apple USB‑A → USB‑C dongle** to the Mac. (Verified setup — not a project requirement, just this machine.)
 
-**On SEND:** wand sends ultrasound data to the Mac over USB. Communication works; **interpretation in software** is what we are fixing.
+**On SEND (BX 2000 only):** wand sends ultrasound data to the Mac over USB.
 
-**Like the original Scanoprobe:** the transducer only has **SEND**. **No LEDs light without gain** — even with SEND held, gain 0 is dark; **gain +** amplifies the echo until the 0–50 bar fills. Software must match that (no fake LEDs without SEND + gain on a real echo).
+**Like the 1982 Scanoprobe:** **no LEDs without gain** — gain 0 is dark; **gain +** fills the 0–50 bar; **gain −** brackets to three fat LEDs. Software must not fake LEDs without a real echo at the current gain.
 
 ### LED scale workflow (locked — Kory, years of use)
 
-**Assume:** gel on skin, **SEND held**.
+**Assume:** gel on skin, probe on site. **BX 2000:** hold **SEND** while reading (USB). **1982 had no SEND** — just skin contact + gain.
 
 1. **Gain +** until the **0–50 LED bar fills** (all lights on).
 2. **Gain −** until only **three consecutive LEDs** remain in the fat zone.

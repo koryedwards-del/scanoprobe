@@ -151,17 +151,6 @@ def _led_mask(
     return mask
 
 
-def led_mask_from_echo(
-    env: np.ndarray,
-    gain_byte: int,
-    gain_index: int,
-    peak_gain_index: int,
-) -> tuple[bool, ...]:
-    """LEDs only when SEND returns echo — gain amplifies what the transducer sees."""
-    bracket_mode = bracket_mode_active(gain_index, peak_gain_index)
-    return tuple(_led_mask(env, gain_byte, gain_index, bracket_mode))
-
-
 def _fat_zone_runs(led_on: list[bool]) -> list[tuple[int, int]]:
     runs: list[tuple[int, int]] = []
     start: int | None = None
@@ -256,7 +245,7 @@ def reading_hint(reading: ScaleReading) -> str:
     if reading.fat_leds_lit >= LED_COUNT - SKIN_LEDS - 2:
         return "Bar full — dial − to bracket"
     if reading.fat_leds_lit == 0:
-        return "No LEDs at this gain — hold SEND, press +"
+        return "No LEDs at this gain — press + (BX: hold SEND on skin)"
     return "Dial gain to three-LED bracket"
 
 

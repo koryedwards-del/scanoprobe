@@ -77,7 +77,8 @@ Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired)
 3. **Ignore LEDs 1, 2, 3** — those are **skin depth**, not the fat reading.
 4. Example bracket: **14, 15, 16** — **15 is the mm reading** (center LED solid).
 5. Fine-tune gain: **14 and 16 bounce**, **15 stays solid** — that is correct.
-6. **HOLD** locks the mm. Put down wand.
+6. **Repeat steps 2–5 three times** — confirm the center mm (e.g. 15) stays consistent before locking. (Production standard: 20k+ users, 15 years.)
+7. **HOLD** locks the mm. Put down wand.
 
 Gain changes **which echoes are visible** on the bar. It does not change the mm formula — you tune until the fascia sits in the three-LED bracket.
 
@@ -88,6 +89,7 @@ SEND held + gel
   → USB bulk packet (header 00 00 00 XX + envelope waveform)
   → decode peak depth → mm on 0–50 LED bar + LCD
   → gain + fills bar, gain − brackets to 3 LEDs (ignore 1–3 skin)
+  → repeat bracket tune ×3, confirm center mm stable
   → HOLD locks center LED mm (e.g. 15 from 14–15–16)
 ```
 

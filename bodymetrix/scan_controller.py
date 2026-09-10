@@ -35,7 +35,7 @@ class ScanController:
             active=True,
             site=site,
             gain_index=DEFAULT_GAIN_INDEX,
-            message="+ until 50 LEDs fill → − to 3 consecutive (skip 1–3 skin) → HOLD.",
+            message="+ fill 50 → − to 3 LEDs (skip 1–3 skin) → confirm ×3 → HOLD.",
         )
         self._probe.ensure_session()
         return self._state.to_dict()

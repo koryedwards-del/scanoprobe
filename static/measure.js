@@ -1,13 +1,14 @@
-/** Scanoprobe — subcutaneous mm (gain slider, LED bar, HOLD). */
+/** Scanoprobe — gain slider 0–50 lights LEDs along depth bar; HOLD locks mm. */
 
 let pollTimer = null;
 let lastGainIndex = 0;
+let lastSlider = 0;
 let maxGainIndex = 127;
 let gainRepeatTimer = null;
 let gainBusy = false;
 let sliderDragging = false;
-let sliderTimer = null;
 
+const SLIDER_MAX = 50;
 const $ = (sel) => document.querySelector(sel);
 
 function formatMm(mm) {
@@ -65,11 +66,11 @@ function renderLeds(state, gainChanged) {
 function syncGainSlider(state, locked) {
   const slider = $("#gain-slider");
   if (!slider || sliderDragging) return;
-  if (state.gain_steps != null) {
-    slider.max = String(Math.max(0, state.gain_steps - 1));
-  }
-  slider.value = String(state.gain_index ?? 0);
+  slider.max = String(state.slider_max ?? SLIDER_MAX);
+  const pos = state.slider ?? 0;
+  slider.value = String(pos);
   slider.disabled = locked;
+  lastSlider = pos;
 }
 
 function render(state, gainChanged = false) {
@@ -77,14 +78,14 @@ function render(state, gainChanged = false) {
     ? state.mm ?? state.locked_mm
     : state.live_mm ?? (state.bracket ? state.mm : null);
   const locked = !!state.locked;
-  const gainByte = state.gain ?? 0;
+  const sliderPos = state.slider ?? 0;
 
   if (state.gain_steps != null) {
     maxGainIndex = Math.max(0, state.gain_steps - 1);
   }
 
   $("#mm").textContent = formatMm(mm);
-  $("#gain-label").textContent = `GAIN ${gainByte}`;
+  $("#gain-label").textContent = `GAIN ${sliderPos}`;
   $("#device").classList.toggle("locked", locked);
 
   const holdBtn = $("#hold");
@@ -107,6 +108,7 @@ function render(state, gainChanged = false) {
   }
 
   if (state.gain_index != null) lastGainIndex = state.gain_index;
+  lastSlider = sliderPos;
 }
 
 function stopPoll() {
@@ -127,25 +129,32 @@ function startPoll() {
   }, 700);
 }
 
-async function setGainIndex(index, readWand = false) {
+async function setGainSlider(sliderVal, readWand = false) {
   if (gainBusy) return;
   gainBusy = true;
-  const prev = lastGainIndex;
-  const idx = Math.max(0, Math.min(maxGainIndex, parseInt(index, 10)));
+  const prev = lastSlider;
+  const val = Math.max(0, Math.min(SLIDER_MAX, parseInt(sliderVal, 10)));
+  const slider = $("#gain-slider");
+  if (slider) slider.value = String(val);
+  $("#gain-label").textContent = `GAIN ${val}`;
   try {
-    const body = readWand ? { index: idx, read: true } : { index: idx };
+    const body = readWand ? { slider: val, read: true } : { slider: val };
     const state = await api("/api/scan/gain", body);
-    render(state, state.gain_index !== prev);
+    render(state, state.slider !== prev);
   } catch (err) {
     const status = $("#status-message");
     if (status) status.textContent = err.message || "Gain failed";
+    if (slider) slider.value = String(prev);
+    $("#gain-label").textContent = `GAIN ${prev}`;
   } finally {
     gainBusy = false;
   }
 }
 
 async function nudgeGain(delta, readWand = false) {
-  await setGainIndex(lastGainIndex + delta, readWand);
+  const slider = $("#gain-slider");
+  const cur = slider ? parseInt(slider.value, 10) : lastSlider;
+  await setGainSlider(cur + delta, readWand);
 }
 
 function stopGainRepeat() {
@@ -167,12 +176,14 @@ function startGainRepeat(delta) {
       const status = $("#status-message");
       if (status) status.textContent = err.message || "Gain failed";
     });
-  }, 200);
+  }, 180);
 }
 
 async function finishGainDial() {
+  const slider = $("#gain-slider");
+  const val = slider ? slider.value : lastSlider;
   try {
-    await setGainIndex(lastGainIndex, true);
+    await setGainSlider(val, true);
   } catch {
     try {
       render(await api("/api/scan/tick"), true);
@@ -220,18 +231,14 @@ function bindGainSlider() {
 
   const onInput = () => {
     if (slider.disabled) return;
-    if (sliderTimer) clearTimeout(sliderTimer);
-    sliderTimer = setTimeout(() => {
-      setGainIndex(slider.value, false);
-    }, 40);
+    setGainSlider(slider.value, false);
   };
 
   const onEnd = async () => {
     if (!sliderDragging) return;
     sliderDragging = false;
-    if (sliderTimer) clearTimeout(sliderTimer);
     if (slider.disabled) return;
-    await setGainIndex(slider.value, true);
+    await setGainSlider(slider.value, true);
     if (!$("#new-btn")?.classList.contains("hidden")) return;
     startPoll();
   };
@@ -265,6 +272,7 @@ async function beginSession() {
   stopGainRepeat();
   sliderDragging = false;
   lastGainIndex = 0;
+  lastSlider = 0;
   const state = await api("/api/scan/begin");
   render(state);
   startPoll();

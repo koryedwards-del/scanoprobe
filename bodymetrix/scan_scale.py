@@ -15,10 +15,10 @@ LED_COUNT = 50
 SKIN_LEDS = 3
 BRACKET_LEDS = 3
 
-# Fine dial: 128 steps (0, 2, 4, … 254) — like turning the 1982 gain knob.
+# Internal wand gain bytes; UI slider is 0–50 (matches depth bar).
 GAIN_STEPS: tuple[int, ...] = tuple(range(0, 256, 2))
 DEFAULT_GAIN_INDEX = 0
-# Top of the dial (slider right) → all 50 LEDs on when echo is present.
+SLIDER_MAX = LED_COUNT
 FULL_BAR_GAIN_INDEX = len(GAIN_STEPS) - 1
 FULL_BAR_GAIN_BYTE = GAIN_STEPS[FULL_BAR_GAIN_INDEX]
 EMPTY_LED_ON: tuple[bool, ...] = tuple([False] * LED_COUNT)
@@ -34,6 +34,21 @@ def index_for_gain(gain: int) -> int:
         if g >= gain:
             return i
     return len(GAIN_STEPS) - 1
+
+
+def gain_index_for_slider(slider: int) -> int:
+    """Map UI slider 0–50 → wand gain index."""
+    if slider <= 0:
+        return 0
+    idx = int(round((slider / float(SLIDER_MAX)) * FULL_BAR_GAIN_INDEX))
+    return max(0, min(idx, FULL_BAR_GAIN_INDEX))
+
+
+def slider_for_gain_index(gain_index: int) -> int:
+    """Map wand gain index → UI slider 0–50."""
+    if gain_index <= 0:
+        return 0
+    return int(round((gain_index / float(FULL_BAR_GAIN_INDEX)) * SLIDER_MAX))
 
 
 @dataclass(frozen=True)
@@ -59,54 +74,44 @@ def _envelope_at_led(env: np.ndarray, led: int) -> float:
     return float(np.max(env[lo:hi]))
 
 
-def _eligible_echo_leds(env: np.ndarray) -> list[tuple[float, int]]:
-    """Depth LEDs with real echo at this site — (amplitude, led number)."""
-    if len(env) < 32 or float(np.max(env)) < 2.0:
-        return []
-    baseline = float(np.median(env[:16]))
-    span = max(1.0, float(np.max(env)) - baseline)
-    floor = baseline + 0.06 * span
-    eligible: list[tuple[float, int]] = []
-    for led in range(1, LED_COUNT + 1):
-        amp = _envelope_at_led(env, led)
-        if amp > floor:
-            eligible.append((amp, led))
-    return eligible
-
-
-def _full_bar_gain(gain_byte: int, gain_index: int) -> bool:
-    return gain_index >= FULL_BAR_GAIN_INDEX or gain_byte >= FULL_BAR_GAIN_BYTE
+def _dial_fraction(gain_index: int) -> float:
+    """Slider 0–50 → 0.0–1.0 along the depth bar."""
+    if gain_index <= 0:
+        return 0.0
+    return min(1.0, gain_index / float(FULL_BAR_GAIN_INDEX))
 
 
 def _envelope_threshold_mask(
     env: np.ndarray, gain_byte: int, gain_index: int
 ) -> list[bool]:
     """
-    Gain dial turns LEDs on/off at real echo depths.
+    Slider/gain lights LEDs along the 0–50 depth bar from the echo.
 
-    Top of dial → all 50 LEDs on (1982 bar full).
-    Below that: + gain adds depths; − removes weakest-first.
+    Slide right → bar fills shallow-to-deep; slide left → peels off from the
+    deep end so the fascia triple is isolated for mm.
     """
     if gain_index <= 0 or gain_byte <= 0 or len(env) < 32:
         return [False] * LED_COUNT
     if float(np.max(env)) < 2.0:
         return [False] * LED_COUNT
-    if _full_bar_gain(gain_byte, gain_index):
+
+    dial = _dial_fraction(gain_index)
+    if dial >= 1.0:
         return [True] * LED_COUNT
 
-    eligible = _eligible_echo_leds(env)
-    if not eligible:
-        return [False] * LED_COUNT
-
-    dial = min(1.0, max(0.0, gain_byte / float(FULL_BAR_GAIN_BYTE)))
-    eligible.sort(key=lambda item: item[0])  # weakest .. strongest
-    n_lit = int(round(dial * len(eligible)))
-    if dial > 0 and n_lit < 1:
-        n_lit = 1
+    baseline = float(np.median(env[:16]))
+    peak = float(np.max(env))
+    span = max(1.0, peak - baseline)
+    floor = baseline + 0.05 * span
+    # How far along the depth bar gain has opened (shallow → deep).
+    fill_to = max(0, int(round(dial * LED_COUNT)))
+    # Echo must beat this threshold — drops as dial rises.
+    threshold = peak - span * dial * 0.98
 
     on = [False] * LED_COUNT
-    for _, led in eligible[-n_lit:]:
-        on[led - 1] = True
+    for led in range(1, fill_to + 1):
+        if _envelope_at_led(env, led) > max(floor, threshold):
+            on[led - 1] = True
     return on
 
 
@@ -242,7 +247,7 @@ def reading_hint(reading: ScaleReading) -> str:
     if reading.fat_leds_lit == 0:
         return "Gain 0 — dark. Press + with SEND held on gel."
     lit = sum(reading.led_on)
-    return f"+ gain → LEDs appear ({lit} lit); − they fade; 0 = dark"
+    return f"Slide gain along bar ({lit} lit) — narrow to three fat LEDs at fascia"
 
 
 @dataclass
@@ -268,6 +273,8 @@ class ScanScaleState:
             "site": self.site,
             "gain": self.gain,
             "gain_index": self.gain_index,
+            "slider": slider_for_gain_index(self.gain_index),
+            "slider_max": SLIDER_MAX,
             "gain_steps": len(GAIN_STEPS),
             "locked": self.locked,
             "bracket": self.bracket,

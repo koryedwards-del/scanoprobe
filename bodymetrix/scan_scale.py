@@ -51,6 +51,15 @@ def slider_for_gain_index(gain_index: int) -> int:
     return int(round((gain_index / float(FULL_BAR_GAIN_INDEX)) * SLIDER_MAX))
 
 
+def leds_for_slider(slider: int) -> tuple[bool, ...]:
+    """Slider 0–50 → that many LEDs on (1..N). Far left 0, far right 50."""
+    n = max(0, min(SLIDER_MAX, int(slider)))
+    on = [False] * LED_COUNT
+    for led in range(1, n + 1):
+        on[led - 1] = True
+    return tuple(on)
+
+
 @dataclass(frozen=True)
 class ScaleReading:
     """mm when gain + echo leave exactly three consecutive fat LEDs (ignore 1–3)."""
@@ -172,8 +181,9 @@ def _reading_from_parts(
     gain_byte: int,
     gain_index: int,
     env: np.ndarray | None = None,
+    slider: int = 0,
 ) -> ScaleReading:
-    if gain_index <= 0:
+    if slider <= 0:
         dark = tuple([False] * LED_COUNT)
         return ScaleReading(None, dark, False, 0, "gain0")
 
@@ -197,14 +207,26 @@ def reading_from_led_on(
     gain_byte: int,
     gain_index: int = DEFAULT_GAIN_INDEX,
     env: np.ndarray | None = None,
+    slider: int = 0,
 ) -> ScaleReading:
-    return _reading_from_parts(led_on, gain_byte, gain_index, env)
+    return _reading_from_parts(led_on, gain_byte, gain_index, env, slider)
+
+
+def reading_for_slider(
+    slider: int,
+    gain_byte: int = 0,
+    gain_index: int = DEFAULT_GAIN_INDEX,
+    env: np.ndarray | None = None,
+) -> ScaleReading:
+    led_on = leds_for_slider(slider)
+    return _reading_from_parts(led_on, gain_byte, gain_index, env, slider)
 
 
 def scale_reading_from_payload(
     payload: bytes,
     gain_byte: int = 0,
     gain_index: int = DEFAULT_GAIN_INDEX,
+    slider: int = 0,
 ) -> ScaleReading | None:
     """
     Wand packet at this gain → LED pattern → mm when three fat LEDs remain.
@@ -220,8 +242,7 @@ def scale_reading_from_payload(
     except ValueError:
         return None
 
-    led_on = tuple(_envelope_threshold_mask(env, gain_byte, gain_index))
-    return _reading_from_parts(led_on, gain_byte, gain_index, env)
+    return reading_for_slider(slider, gain_byte, gain_index, env)
 
 
 def scale_mm_from_payload(
@@ -244,10 +265,10 @@ def reading_hint(reading: ScaleReading) -> str:
         return f"{reading.mm:g} mm — HOLD to lock"
     if sum(reading.led_on) >= LED_COUNT - 2:
         return "Bar full — dial − until three fat LEDs remain"
-    if reading.fat_leds_lit == 0:
-        return "Gain 0 — dark. Press + with SEND held on gel."
+    if sum(reading.led_on) == 0:
+        return "Slider left — no LEDs. Slide right to light the bar."
     lit = sum(reading.led_on)
-    return f"Slide gain along bar ({lit} lit) — narrow to three fat LEDs at fascia"
+    return f"{lit} LEDs lit — slide to tune"
 
 
 @dataclass
@@ -255,6 +276,7 @@ class ScanScaleState:
     active: bool = False
     site: int | None = None
     gain_index: int = DEFAULT_GAIN_INDEX
+    slider: int = 0
     locked: bool = False
     locked_mm: float | None = None
     live_mm: float | None = None
@@ -266,6 +288,14 @@ class ScanScaleState:
     def gain(self) -> int:
         return gain_at_index(self.gain_index)
 
+    def set_slider(self, slider: int) -> None:
+        self.slider = max(0, min(int(slider), SLIDER_MAX))
+        self.gain_index = gain_index_for_slider(self.slider)
+
+    def set_gain_index(self, index: int) -> None:
+        self.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
+        self.slider = slider_for_gain_index(self.gain_index)
+
     def to_dict(self) -> dict:
         mm = self.locked_mm if self.locked else self.live_mm
         return {
@@ -273,7 +303,7 @@ class ScanScaleState:
             "site": self.site,
             "gain": self.gain,
             "gain_index": self.gain_index,
-            "slider": slider_for_gain_index(self.gain_index),
+            "slider": self.slider,
             "slider_max": SLIDER_MAX,
             "gain_steps": len(GAIN_STEPS),
             "locked": self.locked,

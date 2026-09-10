@@ -12,7 +12,7 @@ from bodymetrix.scan_scale import (
     EMPTY_LED_ON,
     GAIN_STEPS,
     ScanScaleState,
-    leds_for_echo,
+    leds_for_slider,
     reading_from_led_on,
     reading_hint,
     scale_reading_from_payload,
@@ -50,7 +50,16 @@ class ScanController:
         except Exception:
             return False
 
-    def _apply_reading(self, reading) -> None:
+    def _apply_slider_leds(self) -> None:
+        """Slider 0–50 directly sets how many LEDs are lit."""
+        led_on = leds_for_slider(self._state.slider)
+        reading = reading_from_led_on(
+            led_on,
+            self._state.gain,
+            self._state.gain_index,
+            self._last_env,
+            slider=self._state.slider,
+        )
         self._state.led_on = reading.led_on
         self._state.bracket = reading.bracket
         self._state.live_mm = reading.mm
@@ -59,27 +68,6 @@ class ScanController:
     def _discard_cached_echo(self) -> None:
         """Drop last site — never show a previous location after the wand moves."""
         self._last_env = None
-
-    def _clear_live(self, message: str) -> None:
-        self._state.led_on = EMPTY_LED_ON
-        self._state.bracket = False
-        self._state.live_mm = None
-        self._state.message = message
-
-    def _apply_cached_leds(self) -> None:
-        """Instant dial feedback — re-threshold last echo at the new gain byte."""
-        if self._state.gain_index <= 0 or self._last_env is None:
-            return
-        led_on = leds_for_echo(
-            self._last_env,
-            self._state.gain,
-            self._state.gain_index,
-        )
-        self._apply_reading(
-            reading_from_led_on(
-                led_on, self._state.gain, self._state.gain_index, self._last_env
-            )
-        )
 
     def _capture_at_gain(self, quick: bool = False) -> bytes:
         gain = self._state.gain
@@ -103,11 +91,12 @@ class ScanController:
         return self._ingest_capture(payload, gain)
 
     def _ingest_capture(self, payload: bytes, gain: int) -> bool:
-        """Decode echo → cache envelope + LED bar. Returns True when echo accepted."""
+        """Decode echo → cache envelope; LEDs stay on slider count."""
         reading = scale_reading_from_payload(
             payload,
             gain_byte=gain,
             gain_index=self._state.gain_index,
+            slider=self._state.slider,
         )
         if reading is None:
             return False
@@ -115,7 +104,9 @@ class ScanController:
             self._last_env = envelope_from_payload(payload)
         except ValueError:
             return False
-        self._apply_reading(reading)
+        self._state.bracket = reading.bracket
+        self._state.live_mm = reading.mm
+        self._apply_slider_leds()
         return True
 
     def begin(self, site: int) -> dict[str, Any]:
@@ -124,8 +115,9 @@ class ScanController:
             active=True,
             site=site,
             gain_index=DEFAULT_GAIN_INDEX,
+            slider=0,
             led_on=EMPTY_LED_ON,
-            message="Gel + hold SEND on BX wand. No LEDs without gain — press +.",
+            message="Gel + hold SEND on BX wand. Slide right to light LEDs.",
         )
         self._probe_usb_ready()
         return self.state()
@@ -140,20 +132,20 @@ class ScanController:
             raise BodyMetrixError("Scan not active.")
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
-        idx = self._state.gain_index + int(delta)
-        return self.set_gain_index(idx, read_wand=read_wand)
+        return self.set_slider(self._state.slider + int(delta), read_wand=read_wand)
 
-    def set_gain_index(self, index: int, read_wand: bool = False) -> dict[str, Any]:
-        """Dial gain — instant LED update; optional wand read when dial stops."""
+    def set_slider(self, slider: int, read_wand: bool = False) -> dict[str, Any]:
+        """Slider 0–50 — that many LEDs light from the left."""
         if not self._state.active:
             raise BodyMetrixError("Scan not active.")
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
 
-        self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
-        if self._state.gain_index <= 0:
+        self._state.set_slider(slider)
+        self._apply_slider_leds()
+
+        if self._state.slider <= 0:
             self._discard_cached_echo()
-            self._clear_live("Gain 0 — no LEDs. Press + with SEND held.")
             if self._probe_usb_ready():
                 try:
                     self._probe.write_gain(0)
@@ -168,20 +160,21 @@ class ScanController:
             except Exception:
                 usb_ok = False
 
-        refreshed = False
         if read_wand and usb_ok:
-            refreshed = self._read_at_gain(quick=True)
-
-        if refreshed:
-            pass
-        elif self._last_env is not None:
-            self._apply_cached_leds()
-        else:
-            self._clear_live(
-                f"GAIN {self._state.gain} — hold SEND on gel."
-            )
+            if not self._read_at_gain(quick=True):
+                self._discard_cached_echo()
+                self._apply_slider_leds()
 
         return self.state()
+
+    def set_gain_index(self, index: int, read_wand: bool = False) -> dict[str, Any]:
+        """Set wand gain index; slider follows."""
+        if not self._state.active:
+            raise BodyMetrixError("Scan not active.")
+        if self._state.locked:
+            raise BodyMetrixError("Release HOLD before changing gain.")
+        self._state.set_gain_index(index)
+        return self.set_slider(self._state.slider, read_wand=read_wand)
 
     def toggle_hold(self) -> dict[str, Any]:
         if not self._state.active:
@@ -208,24 +201,17 @@ class ScanController:
         if self._state.locked:
             return self.state()
 
-        if self._state.gain_index <= 0:
-            self._state.led_on = EMPTY_LED_ON
-            self._state.bracket = False
-            self._state.live_mm = None
-            self._state.message = "Gain 0 — no LEDs. Press + with SEND held."
+        self._apply_slider_leds()
+
+        if self._state.slider <= 0:
             return self.state()
 
         if not self._probe_usb_ready():
             self._discard_cached_echo()
-            self._clear_live(
-                f"GAIN {self._state.gain_index} — probe not ready."
-            )
             return self.state()
 
         if not self._read_at_gain(quick=False):
             self._discard_cached_echo()
-            self._clear_live(
-                f"GAIN {self._state.gain_index} — hold SEND on gel (new site)."
-            )
+            self._apply_slider_leds()
 
         return self.state()

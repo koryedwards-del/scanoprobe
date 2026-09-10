@@ -1,4 +1,4 @@
-/** Scanoprobe — gain slider 0–50 lights LEDs along depth bar; HOLD locks mm. */
+/** Scanoprobe — slider 0–50 directly lights that many LEDs; HOLD locks mm. */
 
 let pollTimer = null;
 let lastGainIndex = 0;

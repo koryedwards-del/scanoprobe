@@ -65,10 +65,7 @@ def create_measure_app() -> Flask:
         read_wand = bool(payload.get("read", False))
         try:
             if "slider" in payload:
-                from bodymetrix.scan_scale import gain_index_for_slider
-
-                idx = gain_index_for_slider(int(payload["slider"]))
-                state = scan.set_gain_index(idx, read_wand=read_wand)
+                state = scan.set_slider(int(payload["slider"]), read_wand=read_wand)
             elif "index" in payload:
                 state = scan.set_gain_index(int(payload["index"]), read_wand=read_wand)
             else:

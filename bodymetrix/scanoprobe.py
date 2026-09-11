@@ -57,9 +57,11 @@ def payload_quality(payload: bytes) -> float:
 def is_placeholder_payload(payload: bytes) -> bool:
     if len(payload) < 8:
         return True
-    if payload_quality(payload) < 0.2:
+    # BX packets are 2048 bytes with trailing zeros — judge header+envelope only.
+    head = payload[:128]
+    if payload_quality(head) < 0.2:
         return True
-    sample = payload[: min(64, len(payload))]
+    sample = head[: min(64, len(head))]
     if all(b in _PLACEHOLDER_BYTES for b in sample) and len(set(sample)) <= 2:
         return True
     return False

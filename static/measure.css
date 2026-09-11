@@ -148,6 +148,38 @@ body {
   50% { opacity: 0.45; }
 }
 
+/* Live waveform — same envelope as LED bar */
+.wave-block {
+  margin-bottom: 0.55rem;
+}
+
+.wave-label {
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  color: var(--label);
+  text-align: left;
+  margin-bottom: 3px;
+  padding: 0 2px;
+}
+
+.wave-well {
+  background: #0a0a0a;
+  border-radius: 3px;
+  padding: 4px;
+  border: 1px inset #000;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.wave-canvas {
+  display: block;
+  width: 100%;
+  height: 88px;
+}
+
+.device.locked .wave-canvas {
+  filter: saturate(0.85);
+}
+
 /* Scale + LED bar */
 .scale-block {
   margin-bottom: 0.85rem;
@@ -223,84 +255,116 @@ body {
   text-align: center;
 }
 
-/* Three buttons — matches hardware layout */
-.button-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.5rem;
+.gain-slider-wrap {
+  margin: 0.65rem 0 0.85rem;
+  padding: 0 0.15rem;
 }
 
-.btn-wrap {
+.gain-slider-label {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  color: var(--label);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
 }
 
-.rubber-btn,
-.hold-btn {
+.gain-slider {
   width: 100%;
-  max-width: 5.5rem;
-  height: 3rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 1.4rem;
-  font-weight: 700;
+  height: 1.5rem;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
   cursor: pointer;
-  color: #e8e8e8;
-  background: linear-gradient(180deg, #3a3a3a, #222 60%, #181818);
-  box-shadow:
-    0 2px 0 #0a0a0a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  user-select: none;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
-.rubber-btn:active:not(:disabled),
-.hold-btn:active:not(:disabled) {
-  transform: translateY(1px);
+.gain-slider:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
-.rubber-btn:disabled,
+.gain-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #0a0a0a;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.95);
+  border: 1px solid #1a1a1a;
+}
+
+.gain-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #4a4a4a 0%, #1a1a1a 100%);
+  border: 2px solid #666;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.device:not(.locked) .gain-slider::-webkit-slider-thumb {
+  border-color: var(--led-on);
+  box-shadow: 0 0 8px var(--led-glow);
+}
+
+.gain-slider::-moz-range-track {
+  height: 6px;
+  background: #0a0a0a;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.95);
+  border: 1px solid #1a1a1a;
+}
+
+.gain-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #4a4a4a 0%, #1a1a1a 100%);
+  border: 2px solid #666;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.device:not(.locked) .gain-slider::-moz-range-thumb {
+  border-color: var(--led-on);
+  box-shadow: 0 0 8px var(--led-glow);
+}
+
+.hold-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #ccc;
+  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 2px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.hold-btn:hover:not(:disabled) {
+  border-color: #666;
+  color: #eee;
+}
+
 .hold-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.hold-btn {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  color: #ccc;
-}
-
-.hold-btn.locked {
-  background: linear-gradient(180deg, #f0b840, var(--hold-amber) 55%, #c87810);
-  color: #1a1000;
-  box-shadow: 0 0 14px var(--hold-glow);
-}
-
-.btn-caption {
-  font-size: 0.5rem;
-  letter-spacing: 0.14em;
-  color: #666;
-  text-transform: uppercase;
-}
-
-.workflow {
-  margin-top: 0.85rem;
-  font-size: 0.7rem;
-  color: #666;
-  line-height: 1.45;
-}
-
-.new-link {
-  margin-top: 0.5rem;
-  background: none;
-  border: none;
-  color: #8ab;
-  font-size: 0.8rem;
-  cursor: pointer;
-  text-decoration: underline;
+.hold-btn.active {
+  color: #1a1a1a;
+  background: linear-gradient(180deg, #f0c050 0%, var(--hold-amber) 100%);
+  border-color: #c08010;
+  box-shadow: 0 0 10px var(--hold-glow);
 }
 
 .hidden { display: none !important; }

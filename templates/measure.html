@@ -28,6 +28,13 @@
           </div>
         </div>
 
+        <div class="wave-block">
+          <div class="wave-label">ECHO — depth (mm)</div>
+          <div class="wave-well">
+            <canvas id="wave-canvas" class="wave-canvas" aria-label="Live ultrasound envelope"></canvas>
+          </div>
+        </div>
+
         <div class="scale-block">
           <div class="tick-row top-ticks" aria-hidden="true">
             <span>0</span><span></span><span>10</span><span></span><span>20</span>
@@ -39,29 +46,31 @@
           <div class="depth-label">DEPTH (mm)</div>
         </div>
 
-        <div class="button-row">
-          <div class="btn-wrap">
-            <button type="button" class="rubber-btn" id="gain-down" aria-label="Gain down">−</button>
-            <span class="btn-caption">GAIN</span>
+        <div class="gain-slider-wrap">
+          <div class="gain-slider-label">
+            <span>GAIN</span>
+            <span>0 — 50</span>
           </div>
-          <div class="btn-wrap">
-            <button type="button" class="rubber-btn" id="gain-up" aria-label="Gain up">+</button>
-            <span class="btn-caption">GAIN</span>
-          </div>
-          <div class="btn-wrap">
-            <button type="button" class="hold-btn" id="hold">HOLD</button>
-            <span class="btn-caption">HOLD</span>
-          </div>
+          <input
+            type="range"
+            id="gain-slider"
+            class="gain-slider"
+            min="0"
+            max="50"
+            value="0"
+            step="1"
+            aria-label="Gain dial along depth bar"
+          />
         </div>
+
+        <button type="button" id="hold-btn" class="hold-btn" aria-pressed="false">
+          HOLD
+        </button>
+
       </div>
     </div>
-
-    <p class="workflow">
-      SEND + gel → + fill 50 LEDs → − until three bracket (ignore 1–3 skin) → HOLD.
-    </p>
-    <button type="button" class="new-link hidden" id="new-btn">New measurement</button>
   </div>
 
-  <script type="module" src="/static/measure.js"></script>
+  <script type="module" src="/static/measure.js?v=38"></script>
 </body>
 </html>

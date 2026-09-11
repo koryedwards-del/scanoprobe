@@ -1,17 +1,24 @@
-"""Scanoprobe LED scan session — gain, HOLD lock, live mm (no device.py bloat)."""
+"""Scanoprobe session — SEND → ms-rate drain → averaged echo → gain → LEDs."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from bodymetrix.scan_scale import (
-    DEFAULT_GAIN_INDEX,
-    GAIN_STEPS,
-    ScanScaleState,
-    reading_hint,
-    scale_reading_from_payload,
+import numpy as np
+
+from bodymetrix.bvalgo import envelope_from_payload
+from bodymetrix.envelope_avg import (
+    MAX_AVERAGE_SAMPLES,
+    MISS_TICKS_TO_CLEAR,
+    TICK_DRAIN_MS,
+    average_envelopes,
 )
-from bodymetrix.scanoprobe import is_placeholder_payload
+from bodymetrix.scan_scale import (
+    EMPTY_LED_ON,
+    LISTEN_GAIN_BYTE,
+    ScanScaleState,
+    reading_from_echo,
+)
 
 if TYPE_CHECKING:
     from bodymetrix.device import BodyMetrixProbe
@@ -22,44 +29,166 @@ class BodyMetrixError(RuntimeError):
 
 
 class ScanController:
-    """0–50 LED scale session using an open BodyMetrixProbe."""
-
     def __init__(self, probe: BodyMetrixProbe) -> None:
         self._probe = probe
         self._state = ScanScaleState()
+        self._last_env: np.ndarray | None = None
+        self._env_samples: list[np.ndarray] = []
+        self._miss_ticks = 0
+        self._pending_new_send = False
+        self._last_tick_shots = 0
 
     def state(self) -> dict[str, Any]:
-        return self._state.to_dict()
+        out = self._state.to_dict()
+        out["has_echo"] = self._last_env is not None
+        out["avg_samples"] = len(self._env_samples)
+        out["avg_target"] = MAX_AVERAGE_SAMPLES
+        out["tick_shots"] = self._last_tick_shots
+        if self._last_env is not None:
+            out["envelope"] = [int(x) for x in self._last_env[:600]]
+        if self._pending_new_send:
+            out["new_send"] = True
+            self._pending_new_send = False
+        return out
+
+    def _usb_ready(self) -> bool:
+        try:
+            self._probe.ensure_session()
+            if not self._probe._pipes_configured:
+                self._probe.bodyview_init()
+            return True
+        except Exception:
+            return False
+
+    def _drain_packets(self, gain_byte: int) -> list[bytes]:
+        try:
+            return self._probe.readbx_multiple_packets(gain_byte, window_ms=TICK_DRAIN_MS)
+        except Exception:
+            return []
+
+    def _clear_average(self, new_send: bool = False) -> None:
+        self._env_samples.clear()
+        self._last_env = None
+        self._last_tick_shots = 0
+        self._miss_ticks = 0
+        if new_send:
+            self._pending_new_send = True
+            self._state.set_slider(0)
+            self._state.led_on = EMPTY_LED_ON
+            self._state.live_mm = None
+            self._state.message = "Hold SEND — move wand in a small circle"
+
+    def _ingest_envelope(self, env: np.ndarray) -> bool:
+        self._env_samples.append(env)
+        if len(self._env_samples) > MAX_AVERAGE_SAMPLES:
+            self._env_samples = self._env_samples[-MAX_AVERAGE_SAMPLES:]
+        averaged = average_envelopes(self._env_samples)
+        if averaged is None:
+            return False
+        self._last_env = averaged
+        n = len(self._env_samples)
+        shots = self._last_tick_shots
+        if n < MAX_AVERAGE_SAMPLES:
+            self._state.message = (
+                f"Averaging {n}/{MAX_AVERAGE_SAMPLES}"
+                + (f" ({shots} shots)" if shots else "")
+                + " — small circle on skin"
+            )
+        else:
+            self._state.message = "Averaged — tune gain, then HOLD"
+        return True
+
+    def _ingest_tick_packets(self, packets: list[bytes]) -> bool:
+        """Mean all ms-rate packets from one tick, then add to rolling average."""
+        envs: list[np.ndarray] = []
+        for payload in packets:
+            try:
+                envs.append(envelope_from_payload(payload))
+            except ValueError:
+                continue
+        if not envs:
+            return False
+        frame = average_envelopes(envs)
+        if frame is None:
+            return False
+        self._last_tick_shots = len(envs)
+        return self._ingest_envelope(frame)
+
+    def _on_tick_miss(self) -> None:
+        self._miss_ticks += 1
+        self._last_tick_shots = 0
+        if self._miss_ticks >= MISS_TICKS_TO_CLEAR and self._env_samples:
+            self._clear_average(new_send=True)
+
+    def _on_tick_hit(self) -> None:
+        self._miss_ticks = 0
+
+    def _read_burst(self, gain_byte: int) -> None:
+        packets = self._drain_packets(gain_byte)
+        if packets:
+            self._ingest_tick_packets(packets)
+
+    def _paint(self) -> None:
+        """Gain on averaged echo → LEDs + LCD."""
+        if self._state.slider <= 0 or self._last_env is None:
+            self._state.led_on = EMPTY_LED_ON
+            self._state.live_mm = None
+            if self._last_env is None and not self._env_samples:
+                self._state.message = "Hold SEND — move wand in a small circle"
+            return
+        reading = reading_from_echo(self._last_env, self._state.slider)
+        self._state.led_on = reading.led_on
+        self._state.live_mm = reading.mm
 
     def begin(self, site: int) -> dict[str, Any]:
+        self._clear_average(new_send=False)
+        self._pending_new_send = False
         self._state = ScanScaleState(
             active=True,
             site=site,
-            gain_index=DEFAULT_GAIN_INDEX,
-            message="No true mm without gain — + fill bar, − to 3-LED bracket, HOLD.",
+            message="Hold SEND — move wand in a small circle",
         )
-        self._probe.ensure_session()
-        return self._state.to_dict()
+        self._usb_ready()
+        return self.state()
 
     def end(self) -> dict[str, Any]:
+        self._clear_average(new_send=False)
         self._state = ScanScaleState()
-        return self._state.to_dict()
+        return self.state()
 
-    def adjust_gain(self, delta: int) -> dict[str, Any]:
+    def set_slider(
+        self, slider: int, read_wand: bool = False, fast: bool = False
+    ) -> dict[str, Any]:
         if not self._state.active:
             raise BodyMetrixError("Scan not active.")
         if self._state.locked:
             raise BodyMetrixError("Release HOLD before changing gain.")
-        idx = self._state.gain_index + int(delta)
-        return self.set_gain_index(idx)
 
-    def set_gain_index(self, index: int) -> dict[str, Any]:
-        if not self._state.active:
-            raise BodyMetrixError("Scan not active.")
-        if self._state.locked:
-            raise BodyMetrixError("Release HOLD before changing gain.")
-        self._state.gain_index = max(0, min(int(index), len(GAIN_STEPS) - 1))
-        return self.tick()
+        old_gain_index = self._state.gain_index
+        self._state.set_slider(slider)
+        if self._state.gain_index != old_gain_index:
+            self._env_samples.clear()
+            self._last_env = None
+            self._last_tick_shots = 0
+
+        if self._state.slider <= 0:
+            self._state.led_on = EMPTY_LED_ON
+            self._state.live_mm = None
+            return self.state()
+
+        if not fast and read_wand and self._usb_ready():
+            self._read_burst(self._state.gain)
+
+        self._paint()
+        return self.state()
+
+    def adjust_gain(self, delta: int, read_wand: bool = False) -> dict[str, Any]:
+        return self.set_slider(self._state.slider + int(delta), read_wand=read_wand)
+
+    def set_gain_index(self, index: int, read_wand: bool = False) -> dict[str, Any]:
+        from bodymetrix.scan_scale import slider_for_gain_index
+
+        return self.set_slider(slider_for_gain_index(index), read_wand=read_wand)
 
     def toggle_hold(self) -> dict[str, Any]:
         if not self._state.active:
@@ -67,52 +196,27 @@ class ScanController:
         if self._state.locked:
             self._state.locked = False
             self._state.locked_mm = None
-            self._state.message = "HOLD released — adjust gain or re-lock."
+            self._state.message = "HOLD released — adjust gain or re-lock"
         else:
             if self._state.live_mm is None:
-                raise BodyMetrixError(
-                    "No true mm yet — + fill bar, − to three-LED bracket, then HOLD."
-                )
+                raise BodyMetrixError("No reading yet — tune gain on the bar.")
             self._state.locked = True
             self._state.locked_mm = self._state.live_mm
-            self._state.message = (
-                f"LOCKED {self._state.locked_mm:g} mm — put down wand, then save."
-            )
-        return self._state.to_dict()
+            self._state.message = f"LOCKED {self._state.locked_mm:g} mm"
+        return self.state()
 
     def tick(self) -> dict[str, Any]:
-        if not self._state.active:
-            raise BodyMetrixError("Scan not active.")
-        if self._state.locked:
-            return self._state.to_dict()
+        if not self._state.active or self._state.locked:
+            return self.state()
 
-        probe = self._probe
-        probe.ensure_session()
-        if not probe._pipes_configured:
-            probe.bodyview_init()
+        if self._usb_ready():
+            gain_byte = LISTEN_GAIN_BYTE if self._state.slider <= 0 else self._state.gain
+            packets = self._drain_packets(gain_byte)
+            if packets:
+                self._on_tick_hit()
+                self._ingest_tick_packets(packets)
+            else:
+                self._on_tick_miss()
 
-        gain = self._state.gain
-        capture = probe.write_gain_and_read(gain, read_ms=450)
-        if len(capture.payload) < 8:
-            capture = probe._bodyview_button_read(hold_s=0.35)
-
-        reading = scale_reading_from_payload(
-            capture.payload,
-            gain_byte=gain,
-            gain_index=self._state.gain_index,
-        )
-        if reading is not None:
-            self._state.led_on = reading.led_on
-            self._state.bracket = reading.bracket
-            self._state.live_mm = reading.mm
-            self._state.message = reading_hint(reading)
-        elif is_placeholder_payload(capture.payload):
-            self._state.bracket = False
-            self._state.live_mm = None
-            self._state.message = "No signal — gel, skin, hold SEND (or unplug/replug)."
-        else:
-            self._state.bracket = False
-            self._state.live_mm = None
-            self._state.message = "Dial + gain — wand needs gain for true mm"
-
-        return self._state.to_dict()
+        self._paint()
+        return self.state()

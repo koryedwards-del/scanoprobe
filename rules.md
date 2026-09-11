@@ -6,6 +6,18 @@ Lock-in doc. Verified on Kory's iMac, Sep 2026.
 
 ---
 
+## What we're building
+
+| | |
+|--|--|
+| **Hardware (what Kory has)** | **BodyMetrix BX 2000** wand — USB, **SEND** button |
+| **Screen (what we're recreating)** | **1982 Scanoprobe** — 0–50 LED bar, gain +/−, bracket tune, HOLD lock |
+| **Not the goal** | **BodyView** — expired; worse workflow; USB/protocol reference only |
+
+The BX wand supplies the echo bytes. The Mac app supplies the **1982-style** measurement UI and decode — because that system worked better than BodyView.
+
+---
+
 ## On Kory's Mac
 
 **Project folder:** `~/scanoprobe` (home folder — **not** Desktop)
@@ -49,35 +61,41 @@ Never run `.venv/bin/python …` from `~` (home) — that folder has no `.venv`.
 
 ## Wand hardware (reset — verified)
 
-**What it is:** BodyMetrix / SCANOPROBE **BX-family USB probe** — handheld transducer, not a self-contained display unit.
+**What it is:** BodyMetrix **BX-family USB probe** (BX 2000) — handheld transducer on the Mac. Not the same box as the **1982 Scanoprobe** (see below).
 
 **What it looks like:**
 - Silver body, blue accents, **BodyMetrix BX 2000** labeling (same product line)
 - **Blue transducer face** at the bottom (contacts skin with gel)
 - **Black cable** from the top → **USB** to the Mac
 
-**Physical controls — one only:**
-- **One side button** (easy-reach thumb button) = **SEND**
+**Physical controls (BX 2000 — Kory's wand today):**
+- **One side button** (thumb) = **SEND** (triggers USB echo burst)
 
-**NOT on the wand (software only):**
+**1982 Scanoprobe (screen we're recreating on the Mac):**
+- **Simple transducer** — **no SEND button** on the original; no LED bar on the unit (that was on the 1982 **display**)
+- **No LEDs without gain** — skin contact + gain up fills the bar; gain down brackets to three fat LEDs; center = mm
+- **BX 2000** is only the probe input; **SEND** is BX USB trigger, not part of the 1982 UI
+
+**NOT on the BX wand (software only):**
 - No LCD, no mm readout, no 0–50 LED bar, no gain +/−, no hold switch, no view toggle
 
 Those live in **ScanoProbe on the Mac** (and were in BodyView before it expired) — SCANOPROBE-style UI driven from the waveform bytes. Gain +/−, mm, LEDs, waveform, 2D view = **screen**, not hardware.
 
 **Connection to Mac:** Wand is **USB-A**. User connects via **Apple USB‑A → USB‑C dongle** to the Mac. (Verified setup — not a project requirement, just this machine.)
 
-**On SEND:** wand sends ultrasound data to the Mac over USB. Communication works; **interpretation in software** is what we are fixing.
+**On SEND (BX 2000 only):** wand sends ultrasound data to the Mac over USB.
+
+**Like the 1982 Scanoprobe:** **no LEDs without gain** — gain 0 is dark; **gain +** fills the 0–50 bar; **gain −** brackets to three fat LEDs. Software must not fake LEDs without a real echo at the current gain.
 
 ### LED scale workflow (locked — Kory, years of use)
 
-**Assume:** gel on skin, **SEND held**.
+**Assume:** gel on skin, probe on site. **BX 2000:** hold **SEND** while reading (USB). **1982 had no SEND** — just skin contact + gain.
 
 1. **Gain +** until the **0–50 LED bar fills** (all lights on).
-2. **Gain −** until only **three consecutive LEDs** remain in the fat zone.
-3. **Ignore LEDs 1, 2, 3** — those are **skin depth**, not the fat reading.
-4. Example bracket: **14, 15, 16** — **15 is the mm reading** (center LED solid).
-5. Fine-tune gain: **14 and 16 bounce**, **15 stays solid** — that is how gain **narrows** to the correct mm.
-6. **HOLD** locks the mm. Put down wand.
+2. **Gain −** — the bar shrinks; **three LEDs stay together**, start near the top (shallow), and **step down** tap by tap toward fascia.
+3. When the trio **stops moving down**, fascia is found — keep dialing **−** until the **rest of the scale goes to 0** and **only those three stay lit**.
+4. **Ignore LEDs 1, 2, 3** (skin) when reading — center of the three fat LEDs = mm (e.g. 11–12–13 → **12 mm**).
+5. Fine-tune: outer two **bounce**, center **solid** — then **HOLD** locks mm. Put down wand.
 
 **The wand never gives the true mm without gain control.** A raw packet at gain 0 is not a valid reading. Gain + fills the bar; gain − brackets to three LEDs; **then** center LED = mm. Showing 4 mm at gain 0 is wrong — do not display mm until bracketed.
 
@@ -105,6 +123,6 @@ SEND held + gel
 | USB + tick loop | Working |
 | mm decode | Not accurate — needs capture + validate against research |
 
-**BodyView:** expired, reference only. **B&B:** retired.
+**BodyView:** expired — do not copy its mm/UX; borrow USB init/read only. **B&B:** retired.
 
 **Next:** one raw capture while holding SEND → paste hex → align decode to research (two peaks, sample index, 1400 m/s fat).

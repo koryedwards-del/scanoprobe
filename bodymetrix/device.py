@@ -480,31 +480,112 @@ class BodyMetrixProbe:
             notes=notes,
         )
 
+    def write_gain(self, gain: int) -> None:
+        """Send gain byte to wand (BodyView writebxGainandRead step 1)."""
+        if self._device is None:
+            self.connect()
+        if not self._pipes_configured:
+            self._bodyview_configure_pipes(20, 50)
+        gain_out = bytes([gain & 0xFF])
+        for ep in self._write_endpoints:
+            try:
+                ep.write(gain_out, self._write_timeout_ms)
+            except Exception:  # noqa: BLE001
+                continue
+
     def write_gain_and_read(self, gain: int, read_ms: int = 500) -> CaptureResult:
-        """BodyView bodymetrixDriver::writebxGainandRead: — write gain byte, read echo."""
+        """BodyView writebxGainandRead: OUT gain byte, then OUT a001 while SEND held."""
         if self._device is None:
             self.connect()
         if not self._pipes_configured:
             self._bodyview_configure_pipes(20, 50)
 
-        gain_byte = bytes([gain & 0xFF])
+        gain_out = bytes([gain & 0xFF])
+        trigger = b"\xa0\x01"
+        write_ms = self._write_timeout_ms
+        read_one_ms = max(self._read_timeout_ms, 200)
+        deadline = time.time() + read_ms / 1000.0
+        best = b""
+        best_q = 0.0
+
+        self.write_gain(gain)
+        time.sleep(0.03)
+
+        while time.time() < deadline:
+            for ep in self._write_endpoints:
+                try:
+                    ep.write(trigger, write_ms)
+                except Exception:  # noqa: BLE001
+                    continue
+            time.sleep(0.05)
+            data = self._read_bulk_up_to(0x800, read_one_ms)
+            if not data:
+                continue
+            q = payload_quality(data)
+            if q > best_q or (q == best_q and len(data) > len(best)):
+                best = data
+                best_q = q
+            if best_q >= 0.35 and len(best) >= 32:
+                break
+
+        notes = [
+            f"gain={gain} OUT {gain_out.hex()} + {trigger.hex()} "
+            f"→ {len(best)} bytes (q={best_q:.2f})"
+        ]
+        if best and is_placeholder_payload(best):
+            notes.append("warning: padding — hold SEND on gelled skin")
+
+        return CaptureResult(
+            payload=best,
+            method="writebxGainandRead",
+            notes=notes,
+        )
+
+    def readbx_multiple_packets(self, gain: int, window_ms: int = 220) -> list[bytes]:
+        """
+        BodyView readbxMultipleSignals — drain ms-rate echoes while SEND is held.
+
+        Set wand gain once, trigger once, then read USB as fast as possible for
+        window_ms and split into separate envelope packets.
+        """
+        from bodymetrix.bodyview_parse import split_bx_packets
+
+        if self._device is None:
+            self.connect()
+        if not self._pipes_configured:
+            self._bodyview_configure_pipes(20, 50)
+        if not self._bodyview_connected:
+            self._bodyview_read_info_string()
+
+        self.write_gain(gain)
+        trigger = b"\xa0\x01"
         for ep in self._write_endpoints:
             try:
-                ep.write(gain_byte, self._write_timeout_ms)
+                ep.write(trigger, self._write_timeout_ms)
             except Exception:  # noqa: BLE001
                 continue
 
-        time.sleep(0.05)
-        best = CaptureResult(payload=b"", method="none")
-        for hit in self._read_endpoint_for(read_ms, accumulate=True):
-            if len(hit.payload) > len(best.payload):
-                best = CaptureResult(
-                    payload=hit.payload,
-                    method="writebxGainandRead",
-                    endpoint=hit.endpoint,
-                    notes=[f"gain={gain} OUT {gain_byte.hex()}"],
-                )
-        return best
+        stream = bytearray()
+        deadline = time.time() + window_ms / 1000.0
+        while time.time() < deadline:
+            chunk = self._read_bulk_up_to(2048, timeout_ms=25)
+            if chunk:
+                stream.extend(chunk)
+            else:
+                time.sleep(0.002)
+
+        packets = split_bx_packets(bytes(stream))
+        if packets:
+            return packets
+
+        # Fallback: single-shot read if stream split found nothing.
+        one = self._bodyview_button_read(hold_s=0.15).payload
+        if len(one) >= 32 and not is_placeholder_payload(one[:128]):
+            return [one]
+        alt = self.write_gain_and_read(gain, read_ms=200).payload
+        if len(alt) >= 32 and not is_placeholder_payload(alt[:128]):
+            return [alt]
+        return []
 
     def try_bodyview_gain_scan(self) -> list[dict[str, Any]]:
         """Try BodyView gain values; user holds SEND on skin during scan."""

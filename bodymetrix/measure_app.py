@@ -62,11 +62,19 @@ def create_measure_app() -> Flask:
     @app.post("/api/scan/gain")
     def api_scan_gain() -> Any:
         payload = request.get_json(force=True) or {}
+        read_wand = bool(payload.get("read", False))
+        fast = bool(payload.get("fast", False))
         try:
-            if "index" in payload:
-                state = scan.set_gain_index(int(payload["index"]))
+            if "slider" in payload:
+                state = scan.set_slider(
+                    int(payload["slider"]), read_wand=read_wand, fast=fast
+                )
+            elif "index" in payload:
+                state = scan.set_gain_index(int(payload["index"]), read_wand=read_wand)
             else:
-                state = scan.adjust_gain(int(payload.get("delta", 0)))
+                state = scan.adjust_gain(
+                    int(payload.get("delta", 0)), read_wand=read_wand
+                )
             return jsonify({"ok": True, **state})
         except Exception as exc:  # noqa: BLE001
             return jsonify({"ok": False, "error": str(exc)}), 400

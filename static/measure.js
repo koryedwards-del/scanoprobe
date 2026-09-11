@@ -157,7 +157,6 @@ function syncHold(state) {
   if (!btn) return;
   btn.classList.toggle("active", locked);
   btn.setAttribute("aria-pressed", locked ? "true" : "false");
-  btn.textContent = locked ? "HOLD" : "HOLD";
   const hasMm = state.mm != null || borderLed(state.led_on) > 0;
   btn.disabled = !locked && !hasMm;
 }
@@ -211,12 +210,22 @@ function render(state) {
   }
 
   syncHold(state);
+  syncHint(state);
 
   if (Array.isArray(state.envelope) && state.envelope.length >= 32) {
     cachedEnvelope = state.envelope;
   }
 
   lastSlider = sliderPos;
+}
+
+function syncHint(state) {
+  const el = $("#probe-status");
+  if (!el || state.locked) return;
+  if (state.message) {
+    el.textContent = state.message;
+    el.className = "probe-line ok";
+  }
 }
 
 function stopPoll() {

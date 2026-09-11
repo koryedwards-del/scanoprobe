@@ -244,7 +244,7 @@ function startPoll() {
     } catch {
       /* waiting for SEND */
     }
-  }, 350);
+  }, 400);
 }
 
 function queueFastGain(val) {

@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 
-# Samples collected while the operator moves the wand in a small circle.
-MAX_AVERAGE_SAMPLES = 10
+# Rolling tick frames (each tick already averages ms-rate wand shots).
+MAX_AVERAGE_SAMPLES = 8
+# USB drain per server tick — wand fires A-scans every few ms while SEND held.
+TICK_DRAIN_MS = 220
+# UI poll interval — server tick should finish within one poll period.
+TICK_POLL_MS = 400
 # Tick misses before we treat SEND as released.
-MISS_TICKS_TO_CLEAR = 4
+MISS_TICKS_TO_CLEAR = 3
 
 
 def average_envelopes(envs: list[np.ndarray]) -> np.ndarray | None:

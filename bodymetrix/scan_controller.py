@@ -1,4 +1,4 @@
-"""Scanoprobe session — SEND → averaged echo cache → gain → LEDs."""
+"""Scanoprobe session — SEND → ms-rate drain → averaged echo → gain → LEDs."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from bodymetrix.bvalgo import envelope_from_payload
 from bodymetrix.envelope_avg import (
     MAX_AVERAGE_SAMPLES,
     MISS_TICKS_TO_CLEAR,
+    TICK_DRAIN_MS,
     average_envelopes,
 )
 from bodymetrix.scan_scale import (
@@ -18,7 +19,6 @@ from bodymetrix.scan_scale import (
     ScanScaleState,
     reading_from_echo,
 )
-from bodymetrix.scanoprobe import is_placeholder_payload
 
 if TYPE_CHECKING:
     from bodymetrix.device import BodyMetrixProbe
@@ -36,12 +36,14 @@ class ScanController:
         self._env_samples: list[np.ndarray] = []
         self._miss_ticks = 0
         self._pending_new_send = False
+        self._last_tick_shots = 0
 
     def state(self) -> dict[str, Any]:
         out = self._state.to_dict()
         out["has_echo"] = self._last_env is not None
         out["avg_samples"] = len(self._env_samples)
         out["avg_target"] = MAX_AVERAGE_SAMPLES
+        out["tick_shots"] = self._last_tick_shots
         if self._last_env is not None:
             out["envelope"] = [int(x) for x in self._last_env[:600]]
         if self._pending_new_send:
@@ -58,25 +60,16 @@ class ScanController:
         except Exception:
             return False
 
-    def _read_echo(self, gain_byte: int, hold_s: float = 0.3) -> bytes | None:
+    def _drain_packets(self, gain_byte: int) -> list[bytes]:
         try:
-            self._probe.write_gain(gain_byte)
-            capture = self._probe._bodyview_button_read(hold_s=hold_s)
-            payload = capture.payload
-            if len(payload) < 8 or is_placeholder_payload(payload[:128]):
-                capture = self._probe.write_gain_and_read(
-                    gain_byte, read_ms=max(200, int(hold_s * 1000) + 50)
-                )
-                payload = capture.payload
-            if len(payload) < 8 or is_placeholder_payload(payload[:128]):
-                return None
-            return payload
+            return self._probe.readbx_multiple_packets(gain_byte, window_ms=TICK_DRAIN_MS)
         except Exception:
-            return None
+            return []
 
     def _clear_average(self, new_send: bool = False) -> None:
         self._env_samples.clear()
         self._last_env = None
+        self._last_tick_shots = 0
         self._miss_ticks = 0
         if new_send:
             self._pending_new_send = True
@@ -85,11 +78,7 @@ class ScanController:
             self._state.live_mm = None
             self._state.message = "Hold SEND — move wand in a small circle"
 
-    def _ingest_payload(self, payload: bytes) -> bool:
-        try:
-            env = envelope_from_payload(payload)
-        except ValueError:
-            return False
+    def _ingest_envelope(self, env: np.ndarray) -> bool:
         self._env_samples.append(env)
         if len(self._env_samples) > MAX_AVERAGE_SAMPLES:
             self._env_samples = self._env_samples[-MAX_AVERAGE_SAMPLES:]
@@ -98,28 +87,46 @@ class ScanController:
             return False
         self._last_env = averaged
         n = len(self._env_samples)
+        shots = self._last_tick_shots
         if n < MAX_AVERAGE_SAMPLES:
             self._state.message = (
-                f"Averaging {n}/{MAX_AVERAGE_SAMPLES} — small circle on skin"
+                f"Averaging {n}/{MAX_AVERAGE_SAMPLES}"
+                + (f" ({shots} shots)" if shots else "")
+                + " — small circle on skin"
             )
         else:
             self._state.message = "Averaged — tune gain, then HOLD"
         return True
 
+    def _ingest_tick_packets(self, packets: list[bytes]) -> bool:
+        """Mean all ms-rate packets from one tick, then add to rolling average."""
+        envs: list[np.ndarray] = []
+        for payload in packets:
+            try:
+                envs.append(envelope_from_payload(payload))
+            except ValueError:
+                continue
+        if not envs:
+            return False
+        frame = average_envelopes(envs)
+        if frame is None:
+            return False
+        self._last_tick_shots = len(envs)
+        return self._ingest_envelope(frame)
+
     def _on_tick_miss(self) -> None:
         self._miss_ticks += 1
+        self._last_tick_shots = 0
         if self._miss_ticks >= MISS_TICKS_TO_CLEAR and self._env_samples:
             self._clear_average(new_send=True)
 
     def _on_tick_hit(self) -> None:
         self._miss_ticks = 0
 
-    def _read_burst(self, gain_byte: int, samples: int = 4) -> None:
-        """Quick multi-shot at current gain (slider release)."""
-        for _ in range(samples):
-            payload = self._read_echo(gain_byte, hold_s=0.12)
-            if payload:
-                self._ingest_payload(payload)
+    def _read_burst(self, gain_byte: int) -> None:
+        packets = self._drain_packets(gain_byte)
+        if packets:
+            self._ingest_tick_packets(packets)
 
     def _paint(self) -> None:
         """Gain on averaged echo → LEDs + LCD."""
@@ -160,9 +167,9 @@ class ScanController:
         old_gain_index = self._state.gain_index
         self._state.set_slider(slider)
         if self._state.gain_index != old_gain_index:
-            # Envelopes at different wand gain are not comparable — restart average.
             self._env_samples.clear()
             self._last_env = None
+            self._last_tick_shots = 0
 
         if self._state.slider <= 0:
             self._state.led_on = EMPTY_LED_ON
@@ -204,10 +211,10 @@ class ScanController:
 
         if self._usb_ready():
             gain_byte = LISTEN_GAIN_BYTE if self._state.slider <= 0 else self._state.gain
-            payload = self._read_echo(gain_byte)
-            if payload:
+            packets = self._drain_packets(gain_byte)
+            if packets:
                 self._on_tick_hit()
-                self._ingest_payload(payload)
+                self._ingest_tick_packets(packets)
             else:
                 self._on_tick_miss()
 

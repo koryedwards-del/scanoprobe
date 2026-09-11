@@ -541,6 +541,52 @@ class BodyMetrixProbe:
             notes=notes,
         )
 
+    def readbx_multiple_packets(self, gain: int, window_ms: int = 220) -> list[bytes]:
+        """
+        BodyView readbxMultipleSignals — drain ms-rate echoes while SEND is held.
+
+        Set wand gain once, trigger once, then read USB as fast as possible for
+        window_ms and split into separate envelope packets.
+        """
+        from bodymetrix.bodyview_parse import split_bx_packets
+
+        if self._device is None:
+            self.connect()
+        if not self._pipes_configured:
+            self._bodyview_configure_pipes(20, 50)
+        if not self._bodyview_connected:
+            self._bodyview_read_info_string()
+
+        self.write_gain(gain)
+        trigger = b"\xa0\x01"
+        for ep in self._write_endpoints:
+            try:
+                ep.write(trigger, self._write_timeout_ms)
+            except Exception:  # noqa: BLE001
+                continue
+
+        stream = bytearray()
+        deadline = time.time() + window_ms / 1000.0
+        while time.time() < deadline:
+            chunk = self._read_bulk_up_to(2048, timeout_ms=25)
+            if chunk:
+                stream.extend(chunk)
+            else:
+                time.sleep(0.002)
+
+        packets = split_bx_packets(bytes(stream))
+        if packets:
+            return packets
+
+        # Fallback: single-shot read if stream split found nothing.
+        one = self._bodyview_button_read(hold_s=0.15).payload
+        if len(one) >= 32 and not is_placeholder_payload(one[:128]):
+            return [one]
+        alt = self.write_gain_and_read(gain, read_ms=200).payload
+        if len(alt) >= 32 and not is_placeholder_payload(alt[:128]):
+            return [alt]
+        return []
+
     def try_bodyview_gain_scan(self) -> list[dict[str, Any]]:
         """Try BodyView gain values; user holds SEND on skin during scan."""
         if self._device is None:

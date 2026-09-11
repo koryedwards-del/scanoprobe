@@ -23,6 +23,7 @@ from bodymetrix.scanoprobe import ScanoprobeResult
 MM_PER_BIN = 0.1
 ENVELOPE_OFFSET = 4
 ENVELOPE_WIDTH = 1024
+BX_PACKET_SIZE = 2048
 
 
 def is_bodyview_bx_packet(payload: bytes) -> bool:
@@ -31,6 +32,27 @@ def is_bodyview_bx_packet(payload: bytes) -> bool:
         return False
     env = payload[ENVELOPE_OFFSET : ENVELOPE_OFFSET + 32]
     return len(env) >= 16 and float(max(env)) > 1.0
+
+
+def split_bx_packets(stream: bytes) -> list[bytes]:
+    """Split a USB drain into separate BX2000 echo packets (ms-rate while SEND held)."""
+    from bodymetrix.scanoprobe import is_placeholder_payload
+
+    out: list[bytes] = []
+    if len(stream) < 32:
+        return out
+
+    i = 0
+    while i + 32 <= len(stream):
+        if stream[i : i + 3] != b"\x00\x00\x00":
+            i += 1
+            continue
+        end = min(len(stream), i + BX_PACKET_SIZE)
+        pkt = stream[i:end]
+        if is_bodyview_bx_packet(pkt) and not is_placeholder_payload(pkt[:128]):
+            out.append(pkt)
+        i = end if end > i else i + 1
+    return out
 
 
 def header_byte3_mm(payload: bytes) -> float | None:

@@ -79,15 +79,9 @@ function gainCut(env, anchor, skinAmp, dial) {
   return floor + (1 - dial) * Math.max(0, skinAmp - floor) * 0.98;
 }
 
-function ledsForEcho(env, slider) {
-  const off = Array(LED_COUNT).fill(false);
-  if (slider <= 0 || env.length < 32) return off;
-
+function echoParams(env) {
   let peak = 0;
   for (let i = 0; i < env.length; i++) peak = Math.max(peak, env[i]);
-  if (peak < 2) return off;
-  if (slider >= SLIDER_MAX) return Array(LED_COUNT).fill(true);
-
   const skinBin = findSkinPeakBin(env);
   let anchor = 0;
   let skinAmp = Math.max(...env.slice(0, Math.max(32, Math.floor(env.length / 16))));
@@ -97,6 +91,16 @@ function ledsForEcho(env, slider) {
     const hi = Math.min(env.length, skinBin + 4);
     skinAmp = Math.max(...env.slice(lo, hi));
   }
+  return { anchor, skinAmp, peak, skinBin };
+}
+
+function ledsForEcho(env, slider) {
+  const off = Array(LED_COUNT).fill(false);
+  if (slider <= 0 || env.length < 32) return off;
+
+  const { anchor, skinAmp, peak } = echoParams(env);
+  if (peak < 2) return off;
+  if (slider >= SLIDER_MAX) return Array(LED_COUNT).fill(true);
 
   const dial = slider / SLIDER_MAX;
   const cut = gainCut(env, anchor, skinAmp, dial);
@@ -105,6 +109,108 @@ function ledsForEcho(env, slider) {
     if (envelopeAtMm(env, mm, anchor) > cut) off[mm - 1] = true;
   }
   return off;
+}
+
+function ampsByDepth(env, anchor) {
+  const amps = [];
+  for (let mm = 0; mm <= LED_COUNT; mm++) {
+    amps.push(envelopeAtMm(env, mm, anchor));
+  }
+  return amps;
+}
+
+function drawWaveform(env, slider, locked = false) {
+  const canvas = $("#wave-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(1, Math.floor(rect.width));
+  const h = Math.max(1, Math.floor(rect.height));
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.fillStyle = "#0a0a0a";
+  ctx.fillRect(0, 0, w, h);
+
+  const pad = { l: 6, r: 6, t: 8, b: 16 };
+  const gw = w - pad.l - pad.r;
+  const gh = h - pad.t - pad.b;
+
+  if (!env || env.length < 32) {
+    ctx.fillStyle = "#555";
+    ctx.font = "11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Hold SEND — live waveform", w / 2, h / 2);
+    return;
+  }
+
+  const { anchor, skinAmp, peak } = echoParams(env);
+  const amps = ampsByDepth(env, anchor);
+  let maxAmp = Math.max(peak, ...amps, 2);
+  const dial = slider / SLIDER_MAX;
+  const cut = slider > 0 ? gainCut(env, anchor, skinAmp, dial) : maxAmp;
+  maxAmp = Math.max(maxAmp, cut, 2);
+
+  const trace = locked ? "#e8a020" : "#5cb85c";
+  const fill = locked ? "rgba(232, 160, 32, 0.22)" : "rgba(45, 138, 45, 0.3)";
+  const cutColor = locked ? "#e8a020" : "#e82828";
+
+  ctx.strokeStyle = "#1e1e1e";
+  ctx.lineWidth = 1;
+  for (let mm = 0; mm <= LED_COUNT; mm += 10) {
+    const x = pad.l + (mm / LED_COUNT) * gw;
+    ctx.beginPath();
+    ctx.moveTo(x, pad.t);
+    ctx.lineTo(x, pad.t + gh);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "rgba(100, 100, 100, 0.12)";
+  ctx.fillRect(pad.l, pad.t, (SKIN_LEDS / LED_COUNT) * gw, gh);
+
+  if (slider > 0) {
+    const cutY = pad.t + gh - (cut / maxAmp) * gh;
+    ctx.strokeStyle = cutColor;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, cutY);
+    ctx.lineTo(pad.l + gw, cutY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const yAt = (amp) => pad.t + gh - (amp / maxAmp) * gh;
+  const xAt = (mm) => pad.l + (mm / LED_COUNT) * gw;
+
+  ctx.beginPath();
+  ctx.moveTo(xAt(0), yAt(amps[0]));
+  for (let mm = 1; mm <= LED_COUNT; mm++) {
+    ctx.lineTo(xAt(mm), yAt(amps[mm]));
+  }
+  ctx.lineTo(xAt(LED_COUNT), pad.t + gh);
+  ctx.lineTo(xAt(0), pad.t + gh);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(xAt(0), yAt(amps[0]));
+  for (let mm = 1; mm <= LED_COUNT; mm++) {
+    ctx.lineTo(xAt(mm), yAt(amps[mm]));
+  }
+  ctx.strokeStyle = trace;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = "#666";
+  ctx.font = "9px sans-serif";
+  ctx.textAlign = "center";
+  for (let mm = 0; mm <= LED_COUNT; mm += 10) {
+    ctx.fillText(String(mm), xAt(mm), h - 3);
+  }
 }
 
 async function api(path, body) {
@@ -161,10 +267,11 @@ function syncHold(state) {
   btn.disabled = !locked && !hasMm;
 }
 
-function applyLocalGain(val) {
+function applyLocalGain(val, locked = false) {
   $("#gain-label").textContent = `GAIN ${val}`;
+  drawWaveform(cachedEnvelope, val, locked);
   if (!cachedEnvelope) {
-    $("#mm").textContent = val > 0 ? "—" : "—";
+    $("#mm").textContent = "—";
     return;
   }
   const ledOn = ledsForEcho(cachedEnvelope, val);
@@ -186,6 +293,7 @@ function render(state) {
     $("#gain-label").textContent = "GAIN 0";
     $("#mm").textContent = "—";
     renderLeds(Array(LED_COUNT).fill(false));
+    drawWaveform(null, 0, false);
   }
 
   const sliderPos = state.slider ?? 0;
@@ -199,14 +307,19 @@ function render(state) {
     startPoll();
   }
 
+  const activeSlider = sliderDragging
+    ? parseInt($("#gain-slider")?.value ?? sliderPos, 10)
+    : sliderPos;
+
   if (sliderDragging && cachedEnvelope && !state.locked) {
-    applyLocalGain(parseInt($("#gain-slider")?.value ?? sliderPos, 10));
+    applyLocalGain(activeSlider, false);
   } else {
     if (!isNewSend) {
       $("#mm").textContent = formatLcd(state);
     }
     renderLeds(state.led_on);
     syncGainSlider(state);
+    drawWaveform(cachedEnvelope, activeSlider, !!state.locked);
   }
 
   syncHold(state);
@@ -354,8 +467,24 @@ async function beginSession() {
   startPoll();
 }
 
+function bindWaveformResize() {
+  const canvas = $("#wave-canvas");
+  if (!canvas) return;
+  const redraw = () => {
+    const slider = parseInt($("#gain-slider")?.value ?? lastSlider, 10);
+    const locked = $("#device")?.classList.contains("locked");
+    drawWaveform(cachedEnvelope, slider, locked);
+  };
+  window.addEventListener("resize", redraw);
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(redraw).observe(canvas.parentElement);
+  }
+}
+
 async function init() {
   ensureLedBar();
+  bindWaveformResize();
+  drawWaveform(null, 0, false);
   await refreshProbe();
   await beginSession();
   bindGainSlider();
